@@ -1,10 +1,10 @@
 {
   "id": "claudian",
-  "name": "Claudian",
+  "name": "Claudian (PI Fork)",
   "version": "2.0.1",
   "minAppVersion": "1.4.5",
-  "description": "Embeds Claude Code as an AI collaborator in your vault. Your vault becomes Claude's working directory, giving it full agentic capabilities: file read/write, search, bash commands, and multi-step workflows.",
-  "author": "Yishen Tu",
-  "authorUrl": "https://github.com/YishenTu",
+  "description": "Embeds PI agent in your Obsidian vault. Your vault becomes the agent's working directory with file read/write, search, bash, and multi-turn conversation support.",
+  "author": "Destiny951",
+  "authorUrl": "https://github.com/Destiny951",
   "isDesktopOnly": true
 }
