@@ -1,6 +1,3 @@
-import * as path from 'path';
-import { pathToFileURL } from 'url';
-
 import {
   buildInlineEditPrompt,
   getInlineEditSystemPrompt,
@@ -14,8 +11,7 @@ import type {
 import type ClaudianPlugin from '../../../main';
 import { getVaultPath } from '../../../utils/path';
 import type { PiEvent } from '../adapters/types';
-
-const PI_SDK_PATH = '/Users/zl-q/.nvm/versions/node/v24.14.1/lib/node_modules/@mariozechner/pi-coding-agent/dist/index.js';
+import { getDefaultPiAgentDir, resolvePiSdkUrl } from '../sdk/piRuntimePaths';
 
 export class PiInlineEditService implements InlineEditService {
   private plugin: ClaudianPlugin;
@@ -64,15 +60,14 @@ export class PiInlineEditService implements InlineEditService {
     if (!vaultPath) return false;
 
     try {
-      const sdkUrl = pathToFileURL(PI_SDK_PATH).href;
+      const sdkUrl = await resolvePiSdkUrl();
       const { createAgentSession, DefaultResourceLoader, SettingsManager, readTool, grepTool, findTool, lsTool, bashTool } =
         await import(sdkUrl);
 
-      const agentDir = path.join(process.env.HOME ?? '', '.pi/agent');
       const settingsManager = SettingsManager.inMemory();
       const resourceLoader = new DefaultResourceLoader({
         cwd: vaultPath,
-        agentDir,
+        agentDir: getDefaultPiAgentDir(),
         settingsManager,
         systemPrompt: getInlineEditSystemPrompt(),
         noExtensions: false,

@@ -1,23 +1,13 @@
-import { getProviderConfig, setProviderConfig } from '../../core/providers/providerConfig';
+import { setProviderConfig } from '../../core/providers/providerConfig';
 
-export interface PiProviderSettings {
-  enabled: boolean;
-}
+export type PiProviderSettings = Record<never, never>;
 
-export const DEFAULT_PI_PROVIDER_SETTINGS: Readonly<PiProviderSettings> = Object.freeze({
-  enabled: false,
-});
+export const DEFAULT_PI_PROVIDER_SETTINGS: Readonly<PiProviderSettings> = Object.freeze({});
 
 export function getPiProviderSettings(
-  settings: Record<string, unknown>,
+  _settings: Record<string, unknown>,
 ): PiProviderSettings {
-  const config = getProviderConfig(settings, 'pi');
-
-  return {
-    enabled: (config.enabled as boolean | undefined)
-      ?? (settings.piEnabled as boolean | undefined)
-      ?? DEFAULT_PI_PROVIDER_SETTINGS.enabled,
-  };
+  return { ...DEFAULT_PI_PROVIDER_SETTINGS };
 }
 
 export function updatePiProviderSettings(
@@ -25,7 +15,7 @@ export function updatePiProviderSettings(
   updates: Partial<PiProviderSettings>,
 ): PiProviderSettings {
   const next = {
-    ...getPiProviderSettings(settings),
+    ...DEFAULT_PI_PROVIDER_SETTINGS,
     ...updates,
   };
   setProviderConfig(settings, 'pi', next);

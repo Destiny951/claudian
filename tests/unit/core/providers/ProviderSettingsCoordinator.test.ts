@@ -6,40 +6,20 @@ import type { Conversation } from '@/core/types';
 
 describe('ProviderSettingsCoordinator', () => {
   describe('normalizeProviderSelection', () => {
-    it('falls back to claude when codex is disabled', () => {
-      const settings: Record<string, unknown> = {
-        settingsProvider: 'codex',
-        providerConfigs: {
-          codex: { enabled: false },
-        },
-      };
-
-      const changed = ProviderSettingsCoordinator.normalizeProviderSelection(settings);
-
-      expect(changed).toBe(true);
-      expect(settings.settingsProvider).toBe('claude');
-    });
-
-    it('falls back to claude for unknown providers', () => {
+    it('falls back to pi for unknown providers', () => {
       const settings: Record<string, unknown> = {
         settingsProvider: 'mystery-provider',
-        providerConfigs: {
-          codex: { enabled: true },
-        },
       };
 
       const changed = ProviderSettingsCoordinator.normalizeProviderSelection(settings);
 
       expect(changed).toBe(true);
-      expect(settings.settingsProvider).toBe('claude');
+      expect(settings.settingsProvider).toBe('pi');
     });
 
     it('returns false when already normalized (no-op)', () => {
       const settings: Record<string, unknown> = {
-        settingsProvider: 'claude',
-        providerConfigs: {
-          codex: { enabled: false },
-        },
+        settingsProvider: 'pi',
       };
       expect(ProviderSettingsCoordinator.normalizeProviderSelection(settings)).toBe(false);
     });
@@ -47,9 +27,9 @@ describe('ProviderSettingsCoordinator', () => {
 
   describe('reconcileAllProviders', () => {
     it('delegates to each registered provider reconciler with its own conversations', () => {
-      const settings: Record<string, unknown> = { model: 'haiku' };
-      const claudeConv = { providerId: 'claude', messages: [] } as unknown as Conversation;
-      const conversations = [claudeConv];
+      const settings: Record<string, unknown> = { model: 'pi' };
+      const piConv = { providerId: 'pi', messages: [] } as unknown as Conversation;
+      const conversations = [piConv];
 
       const result = ProviderSettingsCoordinator.reconcileAllProviders(settings, conversations);
 
@@ -60,20 +40,19 @@ describe('ProviderSettingsCoordinator', () => {
 
     it('filters conversations per provider', () => {
       const reconcileSpy = jest.spyOn(
-        ProviderRegistry.getSettingsReconciler('claude'),
+        ProviderRegistry.getSettingsReconciler('pi'),
         'reconcileModelWithEnvironment',
       );
 
-      const claudeConv = { providerId: 'claude', messages: [] } as unknown as Conversation;
-      const otherConv = { providerId: 'codex', messages: [] } as unknown as Conversation;
-      const settings: Record<string, unknown> = { model: 'haiku' };
+      const piConv = { providerId: 'pi', messages: [] } as unknown as Conversation;
+      const otherConv = { providerId: 'other', messages: [] } as unknown as Conversation;
+      const settings: Record<string, unknown> = { model: 'pi' };
 
-      ProviderSettingsCoordinator.reconcileAllProviders(settings, [claudeConv, otherConv]);
+      ProviderSettingsCoordinator.reconcileAllProviders(settings, [piConv, otherConv]);
 
-      // Claude reconciler should only receive claude conversations
       expect(reconcileSpy).toHaveBeenCalledWith(
         settings,
-        [claudeConv],
+        [piConv],
       );
 
       reconcileSpy.mockRestore();
@@ -82,64 +61,58 @@ describe('ProviderSettingsCoordinator', () => {
 
   describe('normalizeAllModelVariants', () => {
     it('delegates to registered providers', () => {
-      const settings: Record<string, unknown> = { model: 'haiku' };
+      const settings: Record<string, unknown> = { model: 'pi' };
       const result = ProviderSettingsCoordinator.normalizeAllModelVariants(settings);
       expect(typeof result).toBe('boolean');
     });
   });
 
   describe('projectActiveProviderState', () => {
-    it('projects saved model/effort/budget for the settings provider', () => {
+    it('projects saved model for the settings provider', () => {
       const settings: Record<string, unknown> = {
-        settingsProvider: 'codex',
-        providerConfigs: {
-          codex: { enabled: true },
-        },
-        model: 'haiku',
-        effortLevel: 'high',
+        settingsProvider: 'pi',
+        model: 'old-model',
+        effortLevel: 'low',
         serviceTier: 'default',
-        thinkingBudget: 'off',
-        savedProviderModel: { codex: 'gpt-5.4', claude: 'haiku' },
-        savedProviderEffort: { codex: 'medium', claude: 'high' },
-        savedProviderServiceTier: { codex: 'fast', claude: 'default' },
-        savedProviderThinkingBudget: { codex: '1024', claude: 'off' },
+        thinkingBudget: '500',
+        savedProviderModel: { pi: 'pi' },
+        savedProviderEffort: { pi: 'none' },
+        savedProviderThinkingBudget: { pi: 'none' },
       };
 
       ProviderSettingsCoordinator.projectActiveProviderState(settings);
 
-      expect(settings.model).toBe('gpt-5.4');
-      expect(settings.effortLevel).toBe('medium');
-      expect(settings.serviceTier).toBe('fast');
-      expect(settings.thinkingBudget).toBe('1024');
+      expect(settings.model).toBe('pi');
+      expect(settings.effortLevel).toBe('none');
+      expect(settings.thinkingBudget).toBe('none');
     });
 
-    it('defaults to claude when settingsProvider is not set', () => {
+    it('defaults to pi when settingsProvider is not set', () => {
       const settings: Record<string, unknown> = {
         model: 'old-model',
         effortLevel: 'low',
         serviceTier: 'default',
         thinkingBudget: '500',
-        savedProviderModel: { claude: 'sonnet' },
-        savedProviderEffort: { claude: 'high' },
-        savedProviderServiceTier: { claude: 'default' },
-        savedProviderThinkingBudget: { claude: 'off' },
+        savedProviderModel: { pi: 'pi' },
+        savedProviderEffort: { pi: 'none' },
+        savedProviderThinkingBudget: { pi: 'none' },
       };
 
       ProviderSettingsCoordinator.projectActiveProviderState(settings);
 
-      expect(settings.model).toBe('sonnet');
-      expect(settings.effortLevel).toBe('high');
+      expect(settings.model).toBe('pi');
+      expect(settings.effortLevel).toBe('none');
       expect(settings.serviceTier).toBe('default');
-      expect(settings.thinkingBudget).toBe('off');
+      expect(settings.thinkingBudget).toBe('none');
     });
 
     it('does not overwrite when no saved values exist', () => {
       const settings: Record<string, unknown> = {
-        settingsProvider: 'claude',
-        model: 'haiku',
-        effortLevel: 'high',
+        settingsProvider: 'pi',
+        model: 'pi',
+        effortLevel: 'none',
         serviceTier: 'default',
-        thinkingBudget: 'off',
+        thinkingBudget: 'none',
         savedProviderModel: {},
         savedProviderEffort: {},
         savedProviderServiceTier: {},
@@ -148,154 +121,42 @@ describe('ProviderSettingsCoordinator', () => {
 
       ProviderSettingsCoordinator.projectActiveProviderState(settings);
 
-      expect(settings.model).toBe('haiku');
-      expect(settings.effortLevel).toBe('high');
-      expect(settings.thinkingBudget).toBe('off');
+      expect(settings.model).toBe('pi');
+      expect(settings.effortLevel).toBe('none');
+      expect(settings.thinkingBudget).toBe('none');
     });
 
     it('handles missing saved maps gracefully', () => {
       const settings: Record<string, unknown> = {
-        settingsProvider: 'claude',
-        model: 'haiku',
-        effortLevel: 'high',
+        settingsProvider: 'pi',
+        model: 'pi',
+        effortLevel: 'none',
         serviceTier: 'default',
-        thinkingBudget: 'off',
+        thinkingBudget: 'none',
       };
 
       // Should not throw
       ProviderSettingsCoordinator.projectActiveProviderState(settings);
 
-      expect(settings.model).toBe('haiku');
+      expect(settings.model).toBe('pi');
     });
   });
 
   describe('persistProjectedProviderState', () => {
     it('stores the current top-level projection for the settings provider', () => {
       const settings: Record<string, unknown> = {
-        settingsProvider: 'codex',
-        providerConfigs: {
-          codex: { enabled: true },
-        },
-        model: 'gpt-5.4',
-        effortLevel: 'low',
-        serviceTier: 'fast',
-        thinkingBudget: 'off',
-        savedProviderModel: { claude: 'haiku' },
-        savedProviderEffort: { claude: 'high' },
-        savedProviderServiceTier: { claude: 'default' },
-        savedProviderThinkingBudget: { claude: 'off' },
+        settingsProvider: 'pi',
+        model: 'pi',
+        effortLevel: 'none',
+        serviceTier: 'default',
+        thinkingBudget: 'none',
       };
 
       ProviderSettingsCoordinator.persistProjectedProviderState(settings);
 
-      expect(settings.savedProviderModel).toEqual({
-        claude: 'haiku',
-        codex: 'gpt-5.4',
-      });
-      expect(settings.savedProviderEffort).toEqual({
-        claude: 'high',
-        codex: 'low',
-      });
-      expect(settings.savedProviderServiceTier).toEqual({
-        claude: 'default',
-        codex: 'fast',
-      });
-    });
-  });
-
-  describe('projectProviderState', () => {
-    it('seeds a provider projection from provider defaults when no saved values exist', () => {
-      const settings: Record<string, unknown> = {
-        settingsProvider: 'claude',
-        providerConfigs: {
-          codex: {
-            enabled: true,
-            environmentVariables: '',
-          },
-        },
-        model: 'haiku',
-        effortLevel: 'high',
-        serviceTier: 'default',
-        thinkingBudget: 'off',
-        savedProviderModel: {},
-        savedProviderEffort: {},
-        savedProviderServiceTier: {},
-        savedProviderThinkingBudget: {},
-      };
-
-      ProviderSettingsCoordinator.projectProviderState(settings, 'codex');
-
-      expect(settings.model).toBe('gpt-5.4-mini');
-      expect(settings.effortLevel).toBe('medium');
-      expect(settings.serviceTier).toBe('default');
-    });
-
-    it('preserves saved service tier when the projected model hides the toggle', () => {
-      const settings: Record<string, unknown> = {
-        settingsProvider: 'codex',
-        providerConfigs: {
-          codex: {
-            enabled: true,
-            environmentVariables: '',
-          },
-        },
-        model: 'gpt-5.4-mini',
-        effortLevel: 'medium',
-        serviceTier: 'default',
-        thinkingBudget: 'off',
-        savedProviderModel: { codex: 'gpt-5.4-mini' },
-        savedProviderEffort: { codex: 'medium' },
-        savedProviderServiceTier: { codex: 'fast' },
-        savedProviderThinkingBudget: { codex: 'off' },
-      };
-
-      ProviderSettingsCoordinator.projectProviderState(settings, 'codex');
-
-      expect(settings.model).toBe('gpt-5.4-mini');
-      expect(settings.serviceTier).toBe('fast');
-    });
-  });
-
-  describe('provider-scoped reconciliation', () => {
-    it('updates the inactive provider snapshot without clobbering the active projection', () => {
-      const codexConv = {
-        providerId: 'codex',
-        sessionId: 'thread-1',
-        messages: [],
-      } as unknown as Conversation;
-
-      const settings: Record<string, unknown> = {
-        settingsProvider: 'claude',
-        providerConfigs: {
-          codex: {
-            enabled: true,
-            environmentVariables: 'OPENAI_MODEL=gpt-5.4',
-          },
-        },
-        model: 'haiku',
-        effortLevel: 'high',
-        serviceTier: 'default',
-        thinkingBudget: 'off',
-        savedProviderModel: { claude: 'haiku', codex: 'gpt-5.4' },
-        savedProviderEffort: { claude: 'high', codex: 'medium' },
-        savedProviderServiceTier: { claude: 'default', codex: 'fast' },
-        savedProviderThinkingBudget: { claude: 'off', codex: 'off' },
-      };
-
-      const result = ProviderSettingsCoordinator.reconcileAllProviders(settings, [codexConv]);
-
-      expect(result.changed).toBe(true);
-      expect(codexConv.sessionId).toBeNull();
-      expect(codexConv.providerState).toBeUndefined();
-      expect(settings.model).toBe('haiku');
-      expect(settings.savedProviderModel).toEqual({
-        claude: 'haiku',
-        codex: 'gpt-5.4',
-      });
-      expect(settings.savedProviderServiceTier).toEqual({
-        claude: 'default',
-        codex: 'fast',
-      });
+      expect(settings.savedProviderModel).toEqual({ pi: 'pi' });
+      expect(settings.savedProviderEffort).toEqual({ pi: 'none' });
+      expect(settings.savedProviderThinkingBudget).toEqual({ pi: 'none' });
     });
   });
 });

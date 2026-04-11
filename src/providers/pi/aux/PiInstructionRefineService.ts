@@ -1,5 +1,3 @@
-import { pathToFileURL } from 'url';
-
 import { buildRefineSystemPrompt } from '../../../core/prompt/instructionRefine';
 import type {
   InstructionRefineService,
@@ -9,8 +7,7 @@ import type { InstructionRefineResult } from '../../../core/types/settings';
 import type ClaudianPlugin from '../../../main';
 import { getVaultPath } from '../../../utils/path';
 import type { PiEvent } from '../adapters/types';
-
-const PI_SDK_PATH = '/Users/zl-q/.nvm/versions/node/v24.14.1/lib/node_modules/@mariozechner/pi-coding-agent/dist/index.js';
+import { getDefaultPiAgentDir, resolvePiSdkUrl } from '../sdk/piRuntimePaths';
 
 export class PiInstructionRefineService implements InstructionRefineService {
   private plugin: ClaudianPlugin;
@@ -66,15 +63,14 @@ export class PiInstructionRefineService implements InstructionRefineService {
     if (!vaultPath) return false;
 
     try {
-      const sdkUrl = pathToFileURL(PI_SDK_PATH).href;
+      const sdkUrl = await resolvePiSdkUrl();
       const { createAgentSession, DefaultResourceLoader, SettingsManager, bashTool } =
         await import(sdkUrl);
 
-      const agentDir = `${process.env.HOME}/.pi/agent`;
       const settingsManager = SettingsManager.inMemory();
       const resourceLoader = new DefaultResourceLoader({
         cwd: vaultPath,
-        agentDir,
+        agentDir: getDefaultPiAgentDir(),
         settingsManager,
         systemPrompt,
         noExtensions: true,

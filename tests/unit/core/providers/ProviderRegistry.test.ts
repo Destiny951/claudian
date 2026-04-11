@@ -6,10 +6,6 @@ import { ProviderWorkspaceRegistry } from '@/core/providers/ProviderWorkspaceReg
 describe('ProviderRegistry', () => {
   beforeEach(() => {
     ProviderWorkspaceRegistry.clear();
-    ProviderWorkspaceRegistry.setServices('claude', {
-      mcpManager: {} as any,
-      mcpServerManager: {} as any,
-    } as any);
   });
 
   it('creates a runtime with the default provider id', () => {
@@ -17,14 +13,14 @@ describe('ProviderRegistry', () => {
       plugin: {} as any,
     });
 
-    expect(runtime.providerId).toBe('claude');
+    expect(runtime.providerId).toBe('pi');
   });
 
   it('returns capabilities for the default provider', () => {
     const caps = ProviderRegistry.getCapabilities();
-    expect(caps.providerId).toBe('claude');
-    expect(caps).toHaveProperty('supportsPlanMode');
-    expect(caps).toHaveProperty('supportsFork');
+    expect(caps.providerId).toBe('pi');
+    expect(caps.supportsCompact).toBe(true);
+    expect(caps.supportsInstructionMode).toBe(true);
   });
 
   it('returns boundary services for the default provider', () => {
@@ -53,45 +49,23 @@ describe('ProviderRegistry', () => {
     )).toThrow('Provider "nonexistent" is not registered.');
   });
 
-  it('creates a Codex runtime', () => {
+  it('creates a PI runtime explicitly', () => {
     const runtime = ProviderRegistry.createChatRuntime({
-      providerId: 'codex',
+      providerId: 'pi',
       plugin: {} as any,
     });
-    expect(runtime.providerId).toBe('codex');
-  });
-
-  it('returns Codex capabilities', () => {
-    const caps = ProviderRegistry.getCapabilities('codex');
-    expect(caps.providerId).toBe('codex');
-    expect(caps.supportsPlanMode).toBe(true);
-    expect(caps.supportsFork).toBe(true);
-    expect(caps.supportsInstructionMode).toBe(true);
-    expect(caps.supportsRewind).toBe(false);
-    expect(caps.reasoningControl).toBe('effort');
+    expect(runtime.providerId).toBe('pi');
   });
 
   it('lists registered provider ids', () => {
-    const ids = ProviderRegistry.getRegisteredProviderIds();
-    expect(ids).toContain('claude');
-    expect(ids).toContain('codex');
+    expect(ProviderRegistry.getRegisteredProviderIds()).toEqual(['pi']);
   });
 
   it('filters enabled provider ids using registration metadata', () => {
-    expect(ProviderRegistry.getEnabledProviderIds({
-      providerConfigs: {
-        codex: { enabled: false },
-      },
-    })).toEqual(['claude']);
-    expect(ProviderRegistry.getEnabledProviderIds({
-      providerConfigs: {
-        codex: { enabled: true },
-      },
-    })).toEqual(['codex', 'claude']);
+    expect(ProviderRegistry.getEnabledProviderIds({})).toEqual(['pi']);
   });
 
   it('returns the display name from provider registration metadata', () => {
-    expect(ProviderRegistry.getProviderDisplayName('claude')).toBe('Claude');
-    expect(ProviderRegistry.getProviderDisplayName('codex')).toBe('Codex');
+    expect(ProviderRegistry.getProviderDisplayName('pi')).toBe('PI');
   });
 });

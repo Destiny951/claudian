@@ -1,7 +1,4 @@
-import type { McpServerManager } from '../../../core/mcp/McpServerManager';
 import type { ProviderCapabilities, ProviderChatUIConfig } from '../../../core/providers/types';
-import type { UsageInfo } from '../../../core/types';
-
 import { ContextUsageMeter, ExternalContextSelector, McpServerSelector, ModelSelector, PermissionToggle, ServiceTierToggle, ThinkingBudgetSelector } from './toolbar';
 
 export interface ToolbarSettings {

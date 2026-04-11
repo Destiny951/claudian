@@ -16,6 +16,9 @@ import type { ChatState } from '../state/ChatState';
 import type { BangBashModeManager } from '../ui/BangBashModeManager';
 import type { FileContextManager } from '../ui/FileContext';
 import type { ImageContextManager } from '../ui/ImageContext';
+import type { InstructionModeManager } from '../ui/InstructionModeManager';
+import type { NavigationSidebar } from '../ui/NavigationSidebar';
+import type { StatusPanel } from '../ui/StatusPanel';
 import type {
   ContextUsageMeter,
   ExternalContextSelector,
@@ -25,9 +28,6 @@ import type {
   ServiceTierToggle,
   ThinkingBudgetSelector,
 } from '../ui/toolbar';
-import type { InstructionModeManager } from '../ui/InstructionModeManager';
-import type { NavigationSidebar } from '../ui/NavigationSidebar';
-import type { StatusPanel } from '../ui/StatusPanel';
 
 /**
  * Default number of tabs allowed.

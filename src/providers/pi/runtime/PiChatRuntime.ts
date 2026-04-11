@@ -307,7 +307,7 @@ export class PiChatRuntime implements ChatRuntime {
     }
   }
 
-  async compact(customInstructions?: string): Promise<{ tokensBefore: number; estimatedTokensAfter: number | null; summary?: string } | null> {
+  async compact(customInstructions?: string): Promise<{ tokensBefore: number; estimatedTokensAfter: number | null; summary?: string; usage?: UsageInfo | null } | null> {
     if (!this.ready) {
       const ready = await this.ensureReady();
       if (!ready) {
@@ -316,10 +316,14 @@ export class PiChatRuntime implements ChatRuntime {
     }
 
     try {
-      return await this.bridge.compact(customInstructions);
+      const result = await this.bridge.compact(customInstructions);
+      return {
+        ...result,
+        usage: this.mapPiUsage(result.usage),
+      };
     } catch (error) {
       console.error('[PiChatRuntime] Failed to compact:', error);
-      return null;
+      throw error;
     }
   }
 }

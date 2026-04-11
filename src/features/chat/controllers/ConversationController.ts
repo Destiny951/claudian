@@ -13,8 +13,8 @@ import type { SubagentManager } from '../services/SubagentManager';
 import type { ChatState } from '../state/ChatState';
 import type { FileContextManager } from '../ui/FileContext';
 import type { ImageContextManager } from '../ui/ImageContext';
-import type { ExternalContextSelector, McpServerSelector } from '../ui/toolbar';
 import type { StatusPanel } from '../ui/StatusPanel';
+import type { ExternalContextSelector, McpServerSelector } from '../ui/toolbar';
 
 export interface ConversationCallbacks {
   onNewConversation?: () => void;

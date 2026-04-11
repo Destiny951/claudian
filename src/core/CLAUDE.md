@@ -4,10 +4,9 @@ Core modules stay provider-neutral. Features depend on `core/`; providers implem
 
 ## Runtime Status
 
-- `core/runtime/` and `core/providers/` define the chat-facing seam. `ChatRuntime` is the neutral runtime interface. `src/providers/claude/runtime/` and `src/providers/codex/runtime/` provide the concrete implementations.
-- `ProviderRegistry` owns runtime and auxiliary-service factories. `ProviderWorkspaceRegistry` owns provider workspace services such as command catalogs, agent mentions, CLI resolution, MCP managers, and provider settings tabs.
-- Claude-specific agents, plugins, MCP, runtime command discovery, and storage live under `src/providers/claude/`.
-- Codex-specific skills, subagents, JSONL history hydration, session tailing, and workspace services live under `src/providers/codex/`.
+- `core/runtime/` and `core/providers/` define the chat-facing seam. `ChatRuntime` is the neutral runtime interface. `src/providers/pi/runtime/` provides the built-in concrete implementation.
+- `ProviderRegistry` owns runtime and auxiliary-service factories. `ProviderWorkspaceRegistry` owns provider workspace services such as command catalogs, agent mentions, and provider settings tabs.
+- PI-specific bridge, history, command catalog, and workspace services live under `src/providers/pi/`.
 
 ## Modules
 
@@ -25,57 +24,9 @@ Core modules stay provider-neutral. Features depend on `core/`; providers implem
 | `tools/` | Shared tool constants and formatting helpers | `toolNames`, `toolIcons`, `toolInput`, `todo` |
 | `types/` | Shared type definitions | `settings`, `mcp`, `chat`, `tools`, `diff`, `agent`, `plugins` |
 
-## Dependency Rules
-
-```text
-types/ <- all modules
-storage/ <- bootstrap/, provider workspace services
-runtime/ + providers/ <- provider implementations
-features/ -> core contracts only
-```
-
-## Key Patterns
-
-### ChatRuntime
-
-```typescript
-const runtime = ProviderRegistry.createChatRuntime({ plugin, providerId });
-const preparedTurn = runtime.prepareTurn(request);
-
-for await (const chunk of runtime.query(preparedTurn, history)) {
-  // Feature layer consumes provider-neutral StreamChunk values.
-}
-```
-
-### Provider Factories
-
-```typescript
-const titleService = ProviderRegistry.createTitleGenerationService(plugin, providerId);
-const refineService = ProviderRegistry.createInstructionRefineService(plugin, providerId);
-const inlineEditService = ProviderRegistry.createInlineEditService(plugin, providerId);
-```
-
-### Workspace Services
-
-```typescript
-const catalog = ProviderWorkspaceRegistry.getCommandCatalog(providerId);
-const agentMentions = ProviderWorkspaceRegistry.getAgentMentionProvider(providerId);
-const cliResolver = ProviderWorkspaceRegistry.getCliResolver(providerId);
-```
-
-### Storage
-
-- `core/storage/` provides generic vault/home adapters only
-- Provider-owned workspace storage lives under `src/providers/claude/storage/` and `src/providers/codex/storage/`
-- Provider-owned transcript hydration and deletion live under provider `history/` services
-
 ## Gotchas
 
 - `ChatRuntime.cleanup()` must run when a tab is disposed
-- `Conversation.providerState` is intentionally opaque in feature code; provider-specific fields belong behind typed provider helpers
-- Plan mode is capability-driven
-  - Claude enters and exits plan mode through provider/runtime events
-  - Codex sends `collaborationMode` on `turn/start` and uses post-stream plan approval metadata
-- Command discovery differs by provider
-  - Claude merges runtime-discovered commands with vault commands and skills
-  - Codex skill discovery comes from `CodexSkillCatalog` and does not depend on runtime command discovery
+- `Conversation.providerState` is intentionally opaque in feature code
+- PI bridge startup depends on a globally installed `@mariozechner/pi-coding-agent`
+- PI SDK resolution is automatic; do not reintroduce user-configured `PI_SDK_PATH` or `PI_AGENT_DIR`

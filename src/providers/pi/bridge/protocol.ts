@@ -47,5 +47,5 @@ export type BridgeResponse =
   | { type: 'list_skills_ok'; id: string; skills: PiSkillInfo[] }
   | { type: 'context_usage'; id: string; usage: PiContextUsage | null }
   | { type: 'session_stats'; id: string; stats: PiSessionStats }
-  | { type: 'compact_done'; id: string; result: { tokensBefore: number; estimatedTokensAfter: number | null; summary?: string; _diagnostics?: { modelId: string; hasAgentYaml: boolean; summaryLength: number; messagesCount: number } } }
+  | { type: 'compact_done'; id: string; result: { tokensBefore: number; estimatedTokensAfter: number | null; summary?: string; usage?: PiContextUsage | null; _diagnostics?: { modelId: string; hasAgentYaml: boolean; summaryLength: number; messagesCount: number; firstKeptEntryId?: string | null } } }
   | { type: 'error'; id?: string; message: string };

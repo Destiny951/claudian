@@ -866,9 +866,24 @@ function initializeInputToolbar(
       tab.ui.contextUsageMeter?.setCompacting?.(true);
       try {
         const result = await runtime.compact();
-        const refreshedUsage = await runtime.getContextUsage?.() ?? null;
+        if (!result) {
+          throw new Error('Context compaction failed before PI session was updated');
+        }
+        const refreshedUsage = result?.usage ?? await runtime.getContextUsage?.() ?? null;
         if (refreshedUsage?.contextTokens !== null || !result || result.estimatedTokensAfter === null) {
-          tab.state.usage = refreshedUsage;
+          if (refreshedUsage) {
+            tab.state.usage = refreshedUsage;
+          } else if (result?.estimatedTokensAfter === null) {
+            tab.state.usage = {
+              ...(beforeUsage ?? {}),
+              inputTokens: null,
+              contextTokens: null,
+              percentage: null,
+              contextWindow: beforeUsage?.contextWindow ?? 0,
+            };
+          } else {
+            tab.state.usage = refreshedUsage;
+          }
         } else {
           const contextWindow = refreshedUsage?.contextWindow
             ?? beforeUsage?.contextWindow
@@ -881,6 +896,26 @@ function initializeInputToolbar(
             percentage: calculateUsagePercentage(result.estimatedTokensAfter, contextWindow),
             contextWindow,
           };
+        }
+        tab.ui.contextUsageMeter?.update(tab.state.usage);
+
+        const compactedAt = Date.now();
+        const compactMessage: ChatMessage = {
+          id: `pi-compact-${compactedAt}`,
+          role: 'assistant',
+          content: '',
+          timestamp: compactedAt,
+          contentBlocks: [{ type: 'context_compacted' }],
+        };
+        tab.state.addMessage(compactMessage);
+        tab.renderer?.renderStoredMessage(compactMessage, tab.state.messages, tab.state.messages.length - 1);
+
+        if (tab.state.currentConversationId) {
+          void plugin.updateConversation(tab.state.currentConversationId, {
+            messages: tab.state.messages,
+            usage: tab.state.usage ?? undefined,
+            lastResponseAt: compactedAt,
+          });
         }
 
         const beforeTokens = coerceTokenCount(result?.tokensBefore) ?? beforeUsage?.contextTokens ?? null;
@@ -987,7 +1022,8 @@ export function initializeTabUI(
 
 state.callbacks = {
     ...state.callbacks,
-    onUsageChanged: () => {
+    onUsageChanged: (usage) => {
+      tab.ui.contextUsageMeter?.update(usage);
       if (state.isStreaming) return;
       refreshContextUsageForBoundConversation(tab, 'usage_update').catch(() => {});
     },
@@ -1340,10 +1376,12 @@ export function initializeTabControllers(
       },
       onConversationLoaded: () => {
         ui.slashCommandDropdown?.resetSdkSkillsCache();
+        ui.contextUsageMeter?.update(state.usage);
         void refreshContextUsageForBoundConversation(tab, 'loaded');
       },
       onConversationSwitched: () => {
         ui.slashCommandDropdown?.resetSdkSkillsCache();
+        ui.contextUsageMeter?.update(state.usage);
         void refreshContextUsageForBoundConversation(tab, 'switched');
       },
     }

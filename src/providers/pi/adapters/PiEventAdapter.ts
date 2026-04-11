@@ -103,7 +103,7 @@ export class PiEventAdapter {
             }
           }
           return null;
-        case 'toolcall_end':
+        case 'toolcall_end': {
           if (!assistantEvent.toolCallId) {
             return null;
           }
@@ -119,6 +119,7 @@ export class PiEventAdapter {
             name: buffer.name,
             input: this.parseToolInput(buffer.args),
           };
+        }
         default:
           return null;
       }

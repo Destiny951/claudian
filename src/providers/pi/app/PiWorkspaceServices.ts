@@ -4,9 +4,9 @@ import type {
 } from '../../../core/providers/types';
 import type ClaudianPlugin from '../../../main';
 import { getVaultPath } from '../../../utils/path';
-import { PiCommandCatalog } from './PiCommandCatalog';
 import { PiBridgeClient } from '../bridge/PiBridgeClient';
 import { piSettingsTabRenderer } from '../ui/PiSettingsTab';
+import { PiCommandCatalog } from './PiCommandCatalog';
 
 export async function createPiWorkspaceServices(
   plugin: ClaudianPlugin,

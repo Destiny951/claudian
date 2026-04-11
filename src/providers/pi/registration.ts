@@ -7,13 +7,12 @@ import { PiTitleGenerationService } from './aux/PiTitleGenerationService';
 import { PI_PROVIDER_CAPABILITIES } from './capabilities';
 import { PiConversationHistoryService } from './history/PiConversationHistoryService';
 import { PiChatRuntime } from './runtime/PiChatRuntime';
-import { getPiProviderSettings } from './settings';
 import { piChatUIConfig } from './ui/PiChatUIConfig';
 
 export const piProviderRegistration: ProviderRegistration = {
   displayName: 'PI',
   blankTabOrder: 10,
-  isEnabled: (settings) => getPiProviderSettings(settings).enabled,
+  isEnabled: () => true,
   capabilities: PI_PROVIDER_CAPABILITIES,
   environmentKeyPatterns: [/^PI_/i, /^MINIMAX_/i, /^UVX_PATH$/i],
   chatUIConfig: piChatUIConfig,

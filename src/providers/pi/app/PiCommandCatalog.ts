@@ -1,4 +1,4 @@
-import type { ProviderCommandDropdownConfig, ProviderCommandCatalog } from '../../../core/providers/commands/ProviderCommandCatalog';
+import type { ProviderCommandCatalog,ProviderCommandDropdownConfig } from '../../../core/providers/commands/ProviderCommandCatalog';
 import type { ProviderCommandEntry } from '../../../core/providers/commands/ProviderCommandEntry';
 import type { PiBridgeClient } from '../bridge/PiBridgeClient';
 import type { PiSkillInfo } from '../bridge/protocol';

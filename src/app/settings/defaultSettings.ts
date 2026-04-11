@@ -1,7 +1,5 @@
 import { getDefaultHiddenProviderCommands } from '../../core/providers/commands/hiddenCommands';
 import { type ClaudianSettings } from '../../core/types/settings';
-import { DEFAULT_CLAUDE_PROVIDER_SETTINGS } from '../../providers/claude/settings';
-import { DEFAULT_CODEX_PROVIDER_SETTINGS } from '../../providers/codex/settings';
 import { DEFAULT_PI_PROVIDER_SETTINGS } from '../../providers/pi/settings';
 
 export const DEFAULT_CLAUDIAN_SETTINGS: ClaudianSettings = {
@@ -9,9 +7,9 @@ export const DEFAULT_CLAUDIAN_SETTINGS: ClaudianSettings = {
 
   permissionMode: 'yolo',
 
-  model: 'haiku',
+  model: 'pi',
   thinkingBudget: 'off',
-  effortLevel: 'high',
+  effortLevel: 'none',
   serviceTier: 'default',
   enableAutoTitleGeneration: true,
   titleGenerationModel: '',
@@ -34,12 +32,10 @@ export const DEFAULT_CLAUDIAN_SETTINGS: ClaudianSettings = {
   locale: 'en',
 
   providerConfigs: {
-    claude: { ...DEFAULT_CLAUDE_PROVIDER_SETTINGS },
-    codex: { ...DEFAULT_CODEX_PROVIDER_SETTINGS },
     pi: { ...DEFAULT_PI_PROVIDER_SETTINGS },
   },
 
-  settingsProvider: 'claude',
+  settingsProvider: 'pi',
   savedProviderModel: {},
   savedProviderEffort: {},
   savedProviderServiceTier: {},

@@ -2,22 +2,9 @@ import { Setting } from 'obsidian';
 
 import type { ProviderSettingsTabRenderer } from '../../../core/providers/types';
 import { parseEnvironmentVariables } from '../../../utils/env';
-import { getPiProviderSettings, updatePiProviderSettings } from '../settings';
 
 const PI_ENV_SCOPE = 'provider:pi' as const;
 const PI_ENV_FIELDS = [
-  {
-    key: 'PI_AGENT_DIR',
-    name: 'PI_AGENT_DIR',
-    desc: 'PI agent directory. Default is ~/.pi/agent when empty.',
-    placeholder: '/Users/you/.pi/agent',
-  },
-  {
-    key: 'PI_SDK_PATH',
-    name: 'PI_SDK_PATH',
-    desc: 'Optional explicit PI SDK entry path.',
-    placeholder: '/path/to/pi-coding-agent/dist/index.js',
-  },
   {
     key: 'MINIMAX_CN_API_KEY',
     name: 'MINIMAX_CN_API_KEY',
@@ -49,9 +36,6 @@ function toEnvText(entries: Record<string, string>): string {
 
 export const piSettingsTabRenderer: ProviderSettingsTabRenderer = {
   render(container, context) {
-    const settingsBag = context.plugin.settings as unknown as Record<string, unknown>;
-    const piSettings = getPiProviderSettings(settingsBag);
-
     const persistedEnv = parseEnvironmentVariables(
       context.plugin.getEnvironmentVariablesForScope(PI_ENV_SCOPE),
     );
@@ -81,19 +65,6 @@ export const piSettingsTabRenderer: ProviderSettingsTabRenderer = {
         void saveEnvironment();
       }, 300);
     };
-
-    new Setting(container)
-      .setName('Enable PI provider')
-      .setDesc('When enabled, PI appears in the model selector for new conversations.')
-      .addToggle((toggle) =>
-        toggle
-          .setValue(piSettings.enabled)
-          .onChange(async (value) => {
-            updatePiProviderSettings(settingsBag, { enabled: value });
-            await context.plugin.saveSettings();
-            context.refreshModelSelectors();
-          })
-      );
 
     new Setting(container).setName('Environment').setHeading();
 

@@ -8,35 +8,25 @@ describe('ProviderWorkspaceRegistry', () => {
   });
 
   it('returns agent mention providers through the workspace registry', () => {
-    const claudeProvider = { searchAgents: jest.fn().mockReturnValue([]) };
-    const codexProvider = { searchAgents: jest.fn().mockReturnValue([]) };
+    const piProvider = { searchAgents: jest.fn().mockReturnValue([]) };
 
-    ProviderWorkspaceRegistry.setServices('claude', {
-      agentMentionProvider: claudeProvider as any,
-    });
-    ProviderWorkspaceRegistry.setServices('codex', {
-      agentMentionProvider: codexProvider as any,
+    ProviderWorkspaceRegistry.setServices('pi', {
+      agentMentionProvider: piProvider as any,
     });
 
-    expect(ProviderWorkspaceRegistry.getAgentMentionProvider('claude')).toBe(claudeProvider);
-    expect(ProviderWorkspaceRegistry.getAgentMentionProvider('codex')).toBe(codexProvider);
+    expect(ProviderWorkspaceRegistry.getAgentMentionProvider('pi')).toBe(piProvider);
   });
 
   it('refreshes agent mention state through the workspace registry', async () => {
-    const refreshClaude = jest.fn().mockResolvedValue(undefined);
-    const refreshCodex = jest.fn().mockResolvedValue(undefined);
+    const refreshPi = jest.fn().mockResolvedValue(undefined);
 
-    ProviderWorkspaceRegistry.setServices('claude', {
-      refreshAgentMentions: refreshClaude,
-    });
-    ProviderWorkspaceRegistry.setServices('codex', {
-      refreshAgentMentions: refreshCodex,
+    ProviderWorkspaceRegistry.setServices('pi', {
+      refreshAgentMentions: refreshPi,
     });
 
-    await ProviderWorkspaceRegistry.refreshAgentMentions('codex');
+    await ProviderWorkspaceRegistry.refreshAgentMentions('pi');
 
-    expect(refreshClaude).not.toHaveBeenCalled();
-    expect(refreshCodex).toHaveBeenCalled();
+    expect(refreshPi).toHaveBeenCalled();
   });
 
   it('returns the assigned catalog for a provider', () => {
@@ -50,10 +40,10 @@ describe('ProviderWorkspaceRegistry', () => {
       refresh: jest.fn(),
     };
 
-    ProviderWorkspaceRegistry.setServices('claude', {
+    ProviderWorkspaceRegistry.setServices('pi', {
       commandCatalog: mockCatalog as any,
     });
 
-    expect(ProviderWorkspaceRegistry.getCommandCatalog('claude')).toBe(mockCatalog);
+    expect(ProviderWorkspaceRegistry.getCommandCatalog('pi')).toBe(mockCatalog);
   });
 });

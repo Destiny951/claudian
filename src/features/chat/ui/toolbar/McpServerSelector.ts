@@ -1,5 +1,5 @@
-import type { ManagedMcpServer } from '@/core/types';
 import type { McpServerManager } from '@/core/mcp/McpServerManager';
+import type { ManagedMcpServer } from '@/core/types';
 import { CHECK_ICON_SVG, MCP_ICON_SVG } from '@/shared/icons';
 
 export class McpServerSelector {

@@ -3,7 +3,6 @@ import {
   LEGACY_CLAUDIAN_SETTINGS_PATH,
 } from '../../core/bootstrap/StoragePaths';
 import {
-  normalizeHiddenCommandList,
   normalizeHiddenProviderCommands,
 } from '../../core/providers/commands/hiddenCommands';
 import {
@@ -16,21 +15,8 @@ import type {
   ClaudianSettings,
   EnvironmentScope,
   EnvSnippet,
-  HiddenProviderCommands,
   ProviderConfigMap,
 } from '../../core/types/settings';
-import {
-  getClaudeProviderSettings,
-  updateClaudeProviderSettings,
-} from '../../providers/claude/settings';
-import {
-  getCodexProviderSettings,
-  updateCodexProviderSettings,
-} from '../../providers/codex/settings';
-import {
-  getPiProviderSettings,
-  updatePiProviderSettings,
-} from '../../providers/pi/settings';
 import { DEFAULT_CLAUDIAN_SETTINGS } from './defaultSettings';
 
 export {
@@ -168,21 +154,6 @@ function hasLegacyTopLevelProviderFields(stored: Record<string, unknown>): boole
   return LEGACY_TOP_LEVEL_PROVIDER_FIELDS.some((key) => key in stored);
 }
 
-function mergeLegacyClaudeHiddenCommands(
-  hiddenProviderCommands: HiddenProviderCommands,
-  legacyHiddenSlashCommands: unknown,
-): HiddenProviderCommands {
-  const legacyCommands = normalizeHiddenCommandList(legacyHiddenSlashCommands);
-  if (legacyCommands.length === 0 || hiddenProviderCommands.claude) {
-    return hiddenProviderCommands;
-  }
-
-  return {
-    ...hiddenProviderCommands,
-    claude: legacyCommands,
-  };
-}
-
 export class ClaudianSettingsStorage {
   constructor(private adapter: VaultFileAdapter) {}
 
@@ -194,10 +165,7 @@ export class ClaudianSettingsStorage {
 
     const content = await this.adapter.read(settingsPath);
     const stored = JSON.parse(content) as Record<string, unknown>;
-    const hiddenProviderCommands = mergeLegacyClaudeHiddenCommands(
-      normalizeHiddenProviderCommands(stored.hiddenProviderCommands),
-      stored.hiddenSlashCommands,
-    );
+    const hiddenProviderCommands = normalizeHiddenProviderCommands(stored.hiddenProviderCommands);
     const envSnippets = normalizeEnvSnippets(stored.envSnippets);
     const providerConfigs = normalizeProviderConfigs(stored.providerConfigs);
     const legacyProviderSettings = {
@@ -221,19 +189,6 @@ export class ClaudianSettingsStorage {
       ...this.getDefaults(),
       ...legacyNormalized,
     } as StoredClaudianSettings;
-
-    updateClaudeProviderSettings(
-      merged as unknown as Record<string, unknown>,
-      getClaudeProviderSettings(legacyProviderSettings),
-    );
-    updateCodexProviderSettings(
-      merged as unknown as Record<string, unknown>,
-      getCodexProviderSettings(legacyProviderSettings),
-    );
-    updatePiProviderSettings(
-      merged as unknown as Record<string, unknown>,
-      getPiProviderSettings(legacyProviderSettings),
-    );
 
     if (
       settingsPath !== CLAUDIAN_SETTINGS_PATH
@@ -285,21 +240,10 @@ export class ClaudianSettingsStorage {
       return;
     }
 
-    const current = await this.load();
-    updateClaudeProviderSettings(
-      current as unknown as Record<string, unknown>,
-      { lastModel: model },
-    );
-    await this.save(current);
+    await this.update({ model });
   }
 
-  async setLastEnvHash(hash: string): Promise<void> {
-    const current = await this.load();
-    updateClaudeProviderSettings(
-      current as unknown as Record<string, unknown>,
-      { environmentHash: hash },
-    );
-    await this.save(current);
+  async setLastEnvHash(_hash: string): Promise<void> {
   }
 
   private getDefaults(): StoredClaudianSettings {

@@ -63,5 +63,5 @@ export interface ChatRuntime {
   loadSubagentFinalResult?(agentId: string): Promise<string | null>;
 
   getContextUsage?(): Promise<UsageInfo | null>;
-  compact?(customInstructions?: string): Promise<{ tokensBefore: number; estimatedTokensAfter: number | null; summary?: string } | null>;
+  compact?(customInstructions?: string): Promise<{ tokensBefore: number; estimatedTokensAfter: number | null; summary?: string; usage?: UsageInfo | null } | null>;
 }

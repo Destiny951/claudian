@@ -1,77 +1,59 @@
-# Claudian (Fork Edition)
+# Claudian (PI Fork)
 
-`Claudian` 是一个 Obsidian 桌面端插件，把 AI 编码 Agent 直接嵌到你的知识库侧边栏里。
+`Claudian` 是一个 Obsidian 桌面端插件，把 PI agent 直接嵌到知识库侧边栏里。
 
-你的 Vault 会成为 Agent 的工作目录，支持读写文件、搜索、bash 命令、多轮会话和上下文引用。
+你的 Vault 会成为 Agent 的工作目录，支持读写文件、搜索、bash、多轮会话、技能触发与上下文引用。
 
 ## Fork 来源
-
-本仓库基于以下项目 fork 并持续演进：
 
 - 上游项目: `YishenTu/claudian`
 - 上游地址: `https://github.com/YishenTu/claudian`
 
-感谢上游提供的多 Provider 架构、聊天侧边栏基础能力、以及与 Obsidian 的深度集成。
+这个 fork 保留了上游的通用聊天骨架、provider-neutral registry、设置投影和 Obsidian 集成层，但现在只内建 `pi` provider。
 
-## 我在这个 Fork 中做的核心改进
+## 当前方向
 
-以下是本 fork 的重点改动方向，尤其是 PI Provider 相关：
-
-- 新增 PI Provider 的桥接架构（Node sidecar bridge），避免在 Obsidian 插件运行时直接打包 PI SDK。
-- 补齐 PI 会话恢复链路: 会话 `sessionId` 传递、切换会话恢复、重启后 JSONL 历史回放。
-- 修复 PI 工具调用渲染问题: `toolUseId`/`toolCallId` 字段不一致导致的 tool block 丢失。
-- 新增 PI skills 下拉命令目录: 支持通过 `/skill:xxx` 快捷触发。
-- 统一 user context 渲染: skill、current note、editor/browser/canvas/context files 进入同一折叠 context UI，而不是泄露原始注入文本。
-- 修复历史会话切换与 UI 状态错位问题，避免“高亮会话和实际会话不一致”。
-- 优化 PI 环境变量注入与 PATH 继承，降低 sidecar 启动和工具调用失败概率。
+- 移除 Claude/Codex 的内建接入代码与设置入口
+- 聚焦 PI bridge、PI runtime、PI history、PI command catalog
+- 降低配置门槛，删除 `PI_AGENT_DIR` 和 `PI_SDK_PATH` 的手动输入
 
 ## 主要能力
 
-- 多 Provider 聊天（Claude / Codex / PI）
+- PI agent 聊天
 - 多标签会话与历史会话切换
-- Slash 命令、Skill 触发、`@` 上下文引用
+- Slash 命令、PI skills、`@` 上下文引用
 - Inline Edit（文本就地改写，差异预览）
-- Plan Mode（先规划后执行）
-- MCP 服务器接入（Provider 能力范围内）
+- `/compact` 压缩
 
 ## 运行要求
 
 - Obsidian `>= 1.4.5`
 - 仅桌面端（macOS / Linux / Windows）
-- 对应 Provider 的 CLI 或运行环境（按你启用的 Provider 准备）
+- Node.js
+- 全局安装 `@mariozechner/pi-coding-agent`
 
 ## 安装
 
-### 方式 1: 从 Release 安装（推荐）
-
-1. 下载 `main.js`、`manifest.json`、`styles.css`
-2. 放到你的 Vault 插件目录:
-
-```text
-/path/to/vault/.obsidian/plugins/claudian/
-```
-
-3. 在 Obsidian 社区插件里启用 `Claudian`
-
-### 方式 2: 从源码开发
+先安装 PI agent：
 
 ```bash
-git clone <this-fork-repo-url>
-cd claudian
+npm install -g @mariozechner/pi-coding-agent
+```
+
+插件会自动推导：
+
+- PI agent 目录：`~/.pi/agent`
+- PI SDK 入口：`$(npm root -g)/@mariozechner/pi-coding-agent/dist/index.js`
+
+不再需要在插件设置里手动填写 `PI_AGENT_DIR` 或 `PI_SDK_PATH`。
+
+## 开发
+
+```bash
 npm install
 npm run dev
-```
-
-## 开发常用命令
-
-```bash
-# 类型检查
 npm run typecheck
-
-# 单元测试
-npm test
-
-# 生产构建
+npm run test
 npm run build
 ```
 
@@ -79,12 +61,10 @@ npm run build
 
 ```text
 src/
-├── core/                 # Provider-neutral contracts/runtime/registry
+├── core/                 # provider-neutral contracts/runtime/registry
 ├── providers/
-│   ├── claude/
-│   ├── codex/
 │   └── pi/               # PI provider + bridge client + history adapter
-├── features/chat/        # chat tabs/controllers/renderers
+├── features/chat/
 ├── features/inline-edit/
 ├── features/settings/
 ├── shared/
@@ -94,9 +74,9 @@ src/
 
 ## 数据与隐私说明
 
-- 会话元数据存储在 Vault 本地。
-- Provider 原生会话记录由各 Provider 自身机制维护（如本地 JSONL 会话目录）。
-- 本 fork 不内置遥测上报逻辑。
+- 会话元数据存储在 Vault 本地
+- PI 原生会话记录由 `~/.pi` 下的本地目录维护
+- 本 fork 不内置遥测上报逻辑
 
 ## 许可证
 
@@ -105,6 +85,5 @@ MIT License，见 `LICENSE`。
 ## 致谢
 
 - [Obsidian](https://obsidian.md)
-- [Anthropic Claude](https://www.anthropic.com/)
-- [OpenAI Codex](https://github.com/openai/codex)
+- [PI Coding Agent](https://www.npmjs.com/package/@mariozechner/pi-coding-agent)
 - 上游项目 [YishenTu/claudian](https://github.com/YishenTu/claudian)

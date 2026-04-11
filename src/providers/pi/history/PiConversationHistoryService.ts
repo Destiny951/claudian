@@ -21,14 +21,21 @@ interface PiSessionMessageEntry {
   };
 }
 
-type PiSessionEntry = PiSessionHeader | PiSessionMessageEntry | Record<string, unknown>;
+interface PiSessionCompactionEntry {
+  type: 'compaction';
+  id: string;
+  timestamp?: string;
+  summary?: string;
+}
+
+type PiSessionEntry = PiSessionHeader | PiSessionMessageEntry | PiSessionCompactionEntry | Record<string, unknown>;
 
 function toSafeSessionDirName(cwd: string): string {
   return `--${cwd.replace(/^[/\\]/, '').replace(/[/\\:]/g, '-')}--`;
 }
 
 function readJsonlEntries(filePath: string): PiSessionEntry[] {
-  let content = '';
+  let content: string;
   try {
     content = fs.readFileSync(filePath, 'utf-8');
   } catch {
@@ -74,8 +81,8 @@ function extractTextContent(content: unknown): string {
   return parts.join('');
 }
 
-function parseMessageTimestamp(entry: PiSessionMessageEntry): number {
-  const fromMessage = entry.message?.timestamp;
+function parseEntryTimestamp(entry: PiSessionMessageEntry | PiSessionCompactionEntry): number {
+  const fromMessage = 'message' in entry ? entry.message?.timestamp : undefined;
   if (typeof fromMessage === 'number' && Number.isFinite(fromMessage)) {
     return fromMessage;
   }
@@ -94,7 +101,23 @@ function toChatMessages(entries: PiSessionEntry[], sessionId: string): ChatMessa
   const messages: ChatMessage[] = [];
 
   for (const entry of entries) {
-    if (!entry || typeof entry !== 'object' || entry.type !== 'message') {
+    if (!entry || typeof entry !== 'object') {
+      continue;
+    }
+
+    if (entry.type === 'compaction') {
+      const compactEntry = entry as PiSessionCompactionEntry;
+      messages.push({
+        id: `pi-${sessionId}-${compactEntry.id}`,
+        role: 'assistant',
+        content: typeof compactEntry.summary === 'string' ? compactEntry.summary : '',
+        timestamp: parseEntryTimestamp(compactEntry),
+        contentBlocks: [{ type: 'context_compacted' }],
+      });
+      continue;
+    }
+
+    if (entry.type !== 'message') {
       continue;
     }
 
@@ -116,7 +139,7 @@ function toChatMessages(entries: PiSessionEntry[], sessionId: string): ChatMessa
       role,
       content,
       ...(displayContent ? { displayContent } : {}),
-      timestamp: parseMessageTimestamp(msgEntry),
+      timestamp: parseEntryTimestamp(msgEntry),
       ...(role === 'user' ? { userMessageId: msgEntry.id } : {}),
       ...(role === 'assistant' ? { assistantMessageId: msgEntry.id } : {}),
     });
@@ -281,7 +304,7 @@ export class PiConversationHistoryService implements ProviderConversationHistory
       toSafeSessionDirName(vaultPath),
     );
 
-    let fileNames: string[] = [];
+    let fileNames: string[];
     try {
       fileNames = fs.readdirSync(rootDir);
     } catch {

@@ -6,6 +6,7 @@ import type ClaudianPlugin from '../../../main';
 import { findNodeExecutable, getEnhancedPath, parseEnvironmentVariables } from '../../../utils/env';
 import { getVaultPath } from '../../../utils/path';
 import type { PiEvent } from '../adapters/types';
+import { getDefaultPiAgentDir } from '../sdk/piRuntimePaths';
 import type { BridgeRequest, BridgeResponse, PiContextUsage, PiSessionStats, PiSkillInfo } from './protocol';
 
 type InitPending = {
@@ -35,7 +36,7 @@ type SessionStatsPending = {
 };
 
 type CompactPending = {
-  resolve: (result: { tokensBefore: number; estimatedTokensAfter: number | null; summary?: string }) => void;
+  resolve: (result: { tokensBefore: number; estimatedTokensAfter: number | null; summary?: string; usage?: PiContextUsage | null }) => void;
   reject: (error: Error) => void;
 };
 
@@ -144,10 +145,10 @@ export class PiBridgeClient {
     });
   }
 
-  async compact(customInstructions?: string): Promise<{ tokensBefore: number; estimatedTokensAfter: number | null; summary?: string }> {
+  async compact(customInstructions?: string): Promise<{ tokensBefore: number; estimatedTokensAfter: number | null; summary?: string; usage?: PiContextUsage | null }> {
     await this.ensureProcess();
     const id = this.nextId('compact');
-    return new Promise<{ tokensBefore: number; estimatedTokensAfter: number | null; summary?: string }>((resolve, reject) => {
+    return new Promise<{ tokensBefore: number; estimatedTokensAfter: number | null; summary?: string; usage?: PiContextUsage | null }>((resolve, reject) => {
       this.compactPending.set(id, { resolve, reject });
       this.send({ type: 'compact', id, customInstructions });
     });
@@ -223,18 +224,10 @@ export class PiBridgeClient {
       PATH: getEnhancedPath(customEnv.PATH),
     };
 
-    if (!env.PI_AGENT_DIR) {
-      const home = env.HOME ?? process.env.HOME;
-      if (home) {
-        env.PI_AGENT_DIR = path.join(home, '.pi', 'agent');
-      }
-    }
-
     const signature = JSON.stringify({
       customEnv,
       PATH: env.PATH,
-      PI_AGENT_DIR: env.PI_AGENT_DIR ?? '',
-      PI_SDK_PATH: env.PI_SDK_PATH ?? '',
+      agentDir: getDefaultPiAgentDir(),
     });
 
     return { env, signature };

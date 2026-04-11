@@ -1,4 +1,4 @@
-import type { ProviderChatUIConfig, ProviderCapabilities } from '@/core/providers/types';
+import type { ProviderCapabilities,ProviderChatUIConfig } from '@/core/providers/types';
 
 export interface PermissionToggleSettings {
   permissionMode: string;
