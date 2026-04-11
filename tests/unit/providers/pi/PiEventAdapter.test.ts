@@ -284,15 +284,55 @@ describe('PiEventAdapter', () => {
     });
   });
 
+  describe('context_usage', () => {
+    it('should convert known usage to StreamChunk', () => {
+      const event: PiEvent = {
+        type: 'context_usage',
+        tokens: 30000,
+        contextWindow: 200000,
+        percent: 15,
+      };
+
+      expect(adapter.toStreamChunk(event)).toEqual({
+        type: 'usage',
+        usage: {
+          inputTokens: 30000,
+          contextWindow: 200000,
+          contextTokens: 30000,
+          percentage: 15,
+        },
+      });
+    });
+
+    it('should preserve unknown usage after compaction', () => {
+      const event: PiEvent = {
+        type: 'context_usage',
+        tokens: null,
+        contextWindow: 200000,
+        percent: null,
+      };
+
+      expect(adapter.toStreamChunk(event)).toEqual({
+        type: 'usage',
+        usage: {
+          inputTokens: null,
+          contextWindow: 200000,
+          contextTokens: null,
+          percentage: null,
+        },
+      });
+    });
+  });
+
   describe('agent_end', () => {
-    it('should convert to done StreamChunk', () => {
+    it('should not emit a chunk', () => {
       const event: PiEvent = {
         type: 'agent_end',
       };
 
       const chunk = adapter.toStreamChunk(event);
 
-      expect(chunk).toEqual({ type: 'done' });
+      expect(chunk).toBeNull();
     });
   });
 

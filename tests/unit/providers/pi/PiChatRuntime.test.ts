@@ -146,6 +146,36 @@ describe('PiChatRuntime', () => {
 
       expect(chunks).toEqual([{ type: 'error', content: 'PI session failed to initialize' }]);
     });
+
+    it('should keep draining chunks after agent_end so final usage is emitted', async () => {
+      jest.spyOn(PiBridgeClient.prototype, 'ensureReady').mockResolvedValue('pi-session-123');
+      jest.spyOn(PiBridgeClient.prototype, 'prompt').mockImplementation(async (_prompt, onEvent) => {
+        onEvent({ type: 'message_update', messageId: 'm1', assistantMessageEvent: { type: 'text_delta', delta: 'done' } });
+        onEvent({ type: 'agent_end' });
+        onEvent({ type: 'context_usage', tokens: 42000, contextWindow: 200000, percent: 21 });
+      });
+
+      const runtime = new PiChatRuntime(mockPlugin);
+      const turn = runtime.prepareTurn({ text: 'test' });
+
+      const chunks: StreamChunk[] = [];
+      for await (const chunk of runtime.query(turn)) {
+        chunks.push(chunk);
+      }
+
+      expect(chunks).toEqual([
+        { type: 'text', content: 'done' },
+        {
+          type: 'usage',
+          usage: {
+            inputTokens: 42000,
+            contextWindow: 200000,
+            contextTokens: 42000,
+            percentage: 21,
+          },
+        },
+      ]);
+    });
   });
 
   describe('stub methods', () => {
@@ -181,6 +211,28 @@ describe('PiChatRuntime', () => {
       const runtime = new PiChatRuntime(mockPlugin);
       const result = runtime.buildSessionUpdates({ conversation: null, sessionInvalidated: false });
       expect(result.updates.sessionId).toBeNull();
+    });
+  });
+
+  describe('getContextUsage', () => {
+    it('should preserve unknown usage reported after compaction', async () => {
+      jest.spyOn(PiBridgeClient.prototype, 'ensureReady').mockResolvedValue('pi-session-123');
+      jest.spyOn(PiBridgeClient.prototype, 'getContextUsage').mockResolvedValue({
+        tokens: null,
+        contextWindow: 200000,
+        percent: null,
+      });
+
+      const runtime = new PiChatRuntime(mockPlugin);
+      const usage = await runtime.getContextUsage();
+
+      expect(usage).toEqual({
+        inputTokens: null,
+        contextWindow: 200000,
+        contextTokens: null,
+        percentage: null,
+        contextWindowIsAuthoritative: true,
+      });
     });
   });
 });

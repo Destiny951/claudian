@@ -25,6 +25,13 @@ export interface AssistantMessageEvent {
   };
 }
 
+export interface PiContextUsageEvent {
+  type: 'context_usage';
+  tokens: number | null;
+  contextWindow: number;
+  percent: number | null;
+}
+
 export type PiEvent =
   | { type: 'agent_start' }
   | { type: 'turn_start' }
@@ -34,6 +41,7 @@ export type PiEvent =
   | { type: 'turn_end' }
   | { type: 'tool_execution_start'; toolCallId: string; toolName: string; args?: Record<string, unknown> }
   | { type: 'tool_execution_end'; toolCallId: string; toolName?: string; result: unknown; isError?: boolean }
+  | { type: 'context_usage'; tokens: number | null; contextWindow: number; percent: number | null }
   | { type: 'agent_end' };
 
 export type PiEventListener = (event: PiEvent) => void;

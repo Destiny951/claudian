@@ -13,7 +13,7 @@ import type { SubagentManager } from '../services/SubagentManager';
 import type { ChatState } from '../state/ChatState';
 import type { FileContextManager } from '../ui/FileContext';
 import type { ImageContextManager } from '../ui/ImageContext';
-import type { ExternalContextSelector, McpServerSelector } from '../ui/InputToolbar';
+import type { ExternalContextSelector, McpServerSelector } from '../ui/toolbar';
 import type { StatusPanel } from '../ui/StatusPanel';
 
 export interface ConversationCallbacks {
@@ -221,6 +221,7 @@ export class ConversationController {
     if (state.isStreaming) return;
     if (state.isSwitchingConversation) return;
     if (state.isCreatingConversation) return;
+    if (state.currentConversationId === id) return;
 
     state.isSwitchingConversation = true;
 
@@ -559,14 +560,16 @@ export class ConversationController {
         text: isCurrent ? 'Current session' : this.formatDate(conv.lastResponseAt ?? conv.createdAt),
       });
 
-      content.addEventListener('click', async (e) => {
-        e.stopPropagation();
-        try {
-          await options.onSelectConversation(conv.id);
-        } catch {
-          new Notice('Failed to load conversation');
-        }
-      });
+      if (!isCurrent) {
+        content.addEventListener('click', async (e) => {
+          e.stopPropagation();
+          try {
+            await options.onSelectConversation(conv.id);
+          } catch {
+            new Notice('Failed to load conversation');
+          }
+        });
+      }
 
       const actions = item.createDiv({ cls: 'claudian-history-item-actions' });
 

@@ -1,6 +1,9 @@
 import type { UsageInfo } from '../../../core/types';
 
-export function calculateUsagePercentage(contextTokens: number, contextWindow: number): number {
+export function calculateUsagePercentage(contextTokens: number | null, contextWindow: number): number | null {
+  if (contextTokens === null) {
+    return null;
+  }
   return contextWindow > 0
     ? Math.min(100, Math.max(0, Math.round((contextTokens / contextWindow) * 100)))
     : 0;

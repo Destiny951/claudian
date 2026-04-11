@@ -78,30 +78,6 @@ export class PiEventAdapter {
   }
 
   toStreamChunk(event: PiEvent): StreamChunk | null {
-    if (
-      event.type === 'tool_execution_start'
-      || event.type === 'tool_execution_end'
-      || event.type === 'message_update'
-    ) {
-      console.log('[PI_EVENT]', JSON.stringify(event));
-    }
-
-    if (event.type === 'tool_execution_start') {
-      console.log('[PI_ADAPTER] tool_execution_start:', {
-        toolCallId: event.toolCallId,
-        toolName: event.toolName,
-        bufferedIds: Array.from(this.toolCallBuffers.entries()).map(([id, b]) => ({ id, name: b.name })),
-      });
-    }
-
-    if (event.type === 'tool_execution_end') {
-      console.log('[PI_ADAPTER] tool_execution_end:', {
-        toolCallId: event.toolCallId,
-        toolName: event.toolName,
-        bufferedIds: Array.from(this.toolCallBuffers.entries()).map(([id, b]) => ({ id, name: b.name })),
-      });
-    }
-
     if (event.type === 'message_update') {
       const assistantEvent = event.assistantMessageEvent;
       if (!assistantEvent) return null;
@@ -181,7 +157,6 @@ export class PiEventAdapter {
 
       const buffer = this.toolCallBuffers.get(canonicalId);
       const toolName = buffer?.name ?? event.toolName ?? 'unknown';
-      console.log('[PI_ADAPTER] tool_result emitting:', { canonicalId, toolName, bufferExists: !!buffer });
       this.toolCallBuffers.delete(canonicalId);
       this.executionToToolCallId.delete(event.toolCallId);
       return {
@@ -195,7 +170,19 @@ export class PiEventAdapter {
 
     if (event.type === 'agent_end') {
       this.executionToToolCallId.clear();
-      return { type: 'done' };
+      return null;
+    }
+
+    if (event.type === 'context_usage') {
+      return {
+        type: 'usage',
+        usage: {
+          inputTokens: event.tokens,
+          contextWindow: event.contextWindow,
+          contextTokens: event.tokens,
+          percentage: event.percent,
+        },
+      };
     }
 
     return null;

@@ -18,9 +18,8 @@ describe('ChatState', () => {
       expect(state.currentTextEl).toBeNull();
       expect(state.currentTextContent).toBe('');
       expect(state.currentThinkingState).toBeNull();
-      expect(state.thinkingEl).toBeNull();
+      expect(state.streamStatusEl).toBeNull();
       expect(state.queueIndicatorEl).toBeNull();
-      expect(state.thinkingIndicatorTimeout).toBeNull();
       expect(state.toolCallElements).toBeInstanceOf(Map);
       expect(state.writeEditStates).toBeInstanceOf(Map);
       expect(state.pendingTools).toBeInstanceOf(Map);
@@ -30,7 +29,7 @@ describe('ChatState', () => {
       expect(state.needsAttention).toBe(false);
       expect(state.autoScrollEnabled).toBe(true);
       expect(state.responseStartTime).toBeNull();
-      expect(state.flavorTimerInterval).toBeNull();
+      expect(state.streamStatusTimerInterval).toBeNull();
     });
   });
 
@@ -177,11 +176,11 @@ describe('ChatState', () => {
       expect(chatState.currentThinkingState).toBe(state);
     });
 
-    it('stores thinkingEl', () => {
+    it('stores streamStatusEl', () => {
       const chatState = new ChatState();
       const el = {} as HTMLElement;
-      chatState.thinkingEl = el;
-      expect(chatState.thinkingEl).toBe(el);
+      chatState.streamStatusEl = el;
+      expect(chatState.streamStatusEl).toBe(el);
     });
 
     it('stores queueIndicatorEl', () => {
@@ -191,13 +190,6 @@ describe('ChatState', () => {
       expect(chatState.queueIndicatorEl).toBe(el);
     });
 
-    it('stores thinkingIndicatorTimeout', () => {
-      const chatState = new ChatState();
-      const timeout = setTimeout(() => {}, 100);
-      chatState.thinkingIndicatorTimeout = timeout;
-      expect(chatState.thinkingIndicatorTimeout).toBe(timeout);
-      clearTimeout(timeout);
-    });
   });
 
   describe('tool tracking maps', () => {
@@ -326,26 +318,26 @@ describe('ChatState', () => {
       expect(chatState.responseStartTime).toBe(12345);
     });
 
-    it('stores flavorTimerInterval', () => {
+    it('stores streamStatusTimerInterval', () => {
       const chatState = new ChatState();
       const interval = setInterval(() => {}, 1000);
-      chatState.flavorTimerInterval = interval;
-      expect(chatState.flavorTimerInterval).toBe(interval);
+      chatState.streamStatusTimerInterval = interval;
+      expect(chatState.streamStatusTimerInterval).toBe(interval);
       clearInterval(interval);
     });
   });
 
-  describe('clearFlavorTimerInterval', () => {
+  describe('clearStreamStatusTimerInterval', () => {
     it('clears active interval', () => {
       const chatState = new ChatState();
       const clearSpy = jest.spyOn(global, 'clearInterval');
       const interval = setInterval(() => {}, 1000);
-      chatState.flavorTimerInterval = interval;
+      chatState.streamStatusTimerInterval = interval;
 
-      chatState.clearFlavorTimerInterval();
+      chatState.clearStreamStatusTimerInterval();
 
       expect(clearSpy).toHaveBeenCalledWith(interval);
-      expect(chatState.flavorTimerInterval).toBeNull();
+      expect(chatState.streamStatusTimerInterval).toBeNull();
       clearSpy.mockRestore();
     });
 
@@ -353,7 +345,7 @@ describe('ChatState', () => {
       const chatState = new ChatState();
       const clearSpy = jest.spyOn(global, 'clearInterval');
 
-      chatState.clearFlavorTimerInterval();
+      chatState.clearStreamStatusTimerInterval();
 
       expect(clearSpy).not.toHaveBeenCalled();
       clearSpy.mockRestore();
@@ -367,12 +359,11 @@ describe('ChatState', () => {
       chatState.currentTextEl = {} as HTMLElement;
       chatState.currentTextContent = 'text';
       chatState.currentThinkingState = {} as any;
+      chatState.streamStatusEl = {} as HTMLElement;
       chatState.isStreaming = true;
       chatState.cancelRequested = true;
-      const timeout = setTimeout(() => {}, 1000);
-      chatState.thinkingIndicatorTimeout = timeout;
       const interval = setInterval(() => {}, 1000);
-      chatState.flavorTimerInterval = interval;
+      chatState.streamStatusTimerInterval = interval;
       chatState.responseStartTime = 12345;
 
       chatState.resetStreamingState();
@@ -381,10 +372,10 @@ describe('ChatState', () => {
       expect(chatState.currentTextEl).toBeNull();
       expect(chatState.currentTextContent).toBe('');
       expect(chatState.currentThinkingState).toBeNull();
+      expect(chatState.streamStatusEl).toBeNull();
       expect(chatState.isStreaming).toBe(false);
       expect(chatState.cancelRequested).toBe(false);
-      expect(chatState.thinkingIndicatorTimeout).toBeNull();
-      expect(chatState.flavorTimerInterval).toBeNull();
+      expect(chatState.streamStatusTimerInterval).toBeNull();
       expect(chatState.responseStartTime).toBeNull();
     });
   });

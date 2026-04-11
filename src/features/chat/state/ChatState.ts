@@ -24,9 +24,8 @@ function createInitialState(): ChatStateData {
     currentTextEl: null,
     currentTextContent: '',
     currentThinkingState: null,
-    thinkingEl: null,
+    streamStatusEl: null,
     queueIndicatorEl: null,
-    thinkingIndicatorTimeout: null,
     toolCallElements: new Map(),
     writeEditStates: new Map(),
     pendingTools: new Map(),
@@ -36,7 +35,7 @@ function createInitialState(): ChatStateData {
     needsAttention: false,
     autoScrollEnabled: true, // Default; controllers will override based on settings
     responseStartTime: null,
-    flavorTimerInterval: null,
+    streamStatusTimerInterval: null,
     pendingNewSessionPlan: null,
     planFilePath: null,
     prePlanPermissionMode: null,
@@ -199,12 +198,12 @@ export class ChatState {
     this.state.currentThinkingState = value;
   }
 
-  get thinkingEl(): HTMLElement | null {
-    return this.state.thinkingEl;
+  get streamStatusEl(): HTMLElement | null {
+    return this.state.streamStatusEl;
   }
 
-  set thinkingEl(value: HTMLElement | null) {
-    this.state.thinkingEl = value;
+  set streamStatusEl(value: HTMLElement | null) {
+    this.state.streamStatusEl = value;
   }
 
   get queueIndicatorEl(): HTMLElement | null {
@@ -213,14 +212,6 @@ export class ChatState {
 
   set queueIndicatorEl(value: HTMLElement | null) {
     this.state.queueIndicatorEl = value;
-  }
-
-  get thinkingIndicatorTimeout(): ReturnType<typeof setTimeout> | null {
-    return this.state.thinkingIndicatorTimeout;
-  }
-
-  set thinkingIndicatorTimeout(value: ReturnType<typeof setTimeout> | null) {
-    this.state.thinkingIndicatorTimeout = value;
   }
 
   // ============================================
@@ -316,12 +307,12 @@ export class ChatState {
     this.state.responseStartTime = value;
   }
 
-  get flavorTimerInterval(): ReturnType<typeof setInterval> | null {
-    return this.state.flavorTimerInterval;
+  get streamStatusTimerInterval(): ReturnType<typeof setInterval> | null {
+    return this.state.streamStatusTimerInterval;
   }
 
-  set flavorTimerInterval(value: ReturnType<typeof setInterval> | null) {
-    this.state.flavorTimerInterval = value;
+  set streamStatusTimerInterval(value: ReturnType<typeof setInterval> | null) {
+    this.state.streamStatusTimerInterval = value;
   }
 
   get pendingNewSessionPlan(): string | null {
@@ -352,10 +343,10 @@ export class ChatState {
   // Reset Methods
   // ============================================
 
-  clearFlavorTimerInterval(): void {
-    if (this.state.flavorTimerInterval) {
-      clearInterval(this.state.flavorTimerInterval);
-      this.state.flavorTimerInterval = null;
+  clearStreamStatusTimerInterval(): void {
+    if (this.state.streamStatusTimerInterval) {
+      clearInterval(this.state.streamStatusTimerInterval);
+      this.state.streamStatusTimerInterval = null;
     }
   }
 
@@ -364,15 +355,11 @@ export class ChatState {
     this.state.currentTextEl = null;
     this.state.currentTextContent = '';
     this.state.currentThinkingState = null;
+    this.state.streamStatusEl = null;
     this.state.isStreaming = false;
     this.state.cancelRequested = false;
-    // Clear thinking indicator timeout
-    if (this.state.thinkingIndicatorTimeout) {
-      clearTimeout(this.state.thinkingIndicatorTimeout);
-      this.state.thinkingIndicatorTimeout = null;
-    }
     // Clear response timer
-    this.clearFlavorTimerInterval();
+    this.clearStreamStatusTimerInterval();
     this.state.responseStartTime = null;
   }
 

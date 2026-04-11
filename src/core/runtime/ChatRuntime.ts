@@ -1,5 +1,5 @@
 import type { ProviderCapabilities, ProviderId } from '../providers/types';
-import type { ChatMessage, Conversation, SlashCommand, StreamChunk, ToolCallInfo } from '../types';
+import type { ChatMessage, Conversation, SlashCommand, StreamChunk, ToolCallInfo, UsageInfo } from '../types';
 import type {
   ApprovalCallback,
   AskUserQuestionCallback,
@@ -61,4 +61,7 @@ export interface ChatRuntime {
 
   loadSubagentToolCalls?(agentId: string): Promise<ToolCallInfo[]>;
   loadSubagentFinalResult?(agentId: string): Promise<string | null>;
+
+  getContextUsage?(): Promise<UsageInfo | null>;
+  compact?(customInstructions?: string): Promise<{ tokensBefore: number; estimatedTokensAfter: number | null; summary?: string } | null>;
 }

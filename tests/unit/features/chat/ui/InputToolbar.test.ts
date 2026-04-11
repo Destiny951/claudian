@@ -1,15 +1,8 @@
 import { createMockEl } from '@test/helpers/mockElement';
 
 import type { UsageInfo } from '@/core/types';
-import {
-  ContextUsageMeter,
-  createInputToolbar,
-  McpServerSelector,
-  ModelSelector,
-  PermissionToggle,
-  ServiceTierToggle,
-  ThinkingBudgetSelector,
-} from '@/features/chat/ui/InputToolbar';
+import { createInputToolbar } from '@/features/chat/ui/InputToolbar';
+import { ContextUsageMeter, McpServerSelector, ModelSelector, PermissionToggle, ServiceTierToggle, ThinkingBudgetSelector } from '@/features/chat/ui/toolbar';
 
 jest.mock('obsidian', () => ({
   Notice: jest.fn(),
@@ -862,16 +855,25 @@ describe('ContextUsageMeter', () => {
     expect(container?.style.display).toBe('none');
   });
 
+  it('should remain visible when usage becomes temporarily unknown', () => {
+    meter.update(makeUsage({ inputTokens: null, contextTokens: null, contextWindow: 200000, percentage: null }));
+    const container = parentEl.querySelector('.claudian-context-meter');
+    expect(container?.style.display).toBe('flex');
+    expect(container?.getAttribute('data-tooltip')).toBe('unknown / 200k');
+  });
+
   it('should become visible when contextTokens > 0', () => {
     meter.update(makeUsage({ contextTokens: 50000, contextWindow: 200000, percentage: 25 }));
     const container = parentEl.querySelector('.claudian-context-meter');
     expect(container?.style.display).toBe('flex');
   });
 
-  it('should display percentage', () => {
+  it('should render only the circle gauge without percentage text', () => {
     meter.update(makeUsage({ contextTokens: 50000, contextWindow: 200000, percentage: 25 }));
     const percent = parentEl.querySelector('.claudian-context-meter-percent');
-    expect(percent?.textContent).toBe('25%');
+    const gauge = parentEl.querySelector('.claudian-context-meter-gauge');
+    expect(percent).toBeNull();
+    expect(gauge).not.toBeNull();
   });
 
   it('should add warning class when usage > 80%', () => {

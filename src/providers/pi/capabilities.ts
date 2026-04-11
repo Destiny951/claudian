@@ -11,5 +11,6 @@ export const PI_PROVIDER_CAPABILITIES: Readonly<ProviderCapabilities> = Object.f
   supportsImageAttachments: false,
   supportsInstructionMode: true,
   supportsMcpTools: false,
+  supportsCompact: true,
   reasoningControl: 'none',
 });

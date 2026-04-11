@@ -4,36 +4,13 @@
   position: relative;
   display: flex;
   align-items: center;
-  gap: 4px;
-  margin-inline-start: 8px;
+  justify-content: center;
+  margin-inline-start: auto;
   cursor: default;
 }
 
-/* Custom tooltip */
-.claudian-context-meter::after {
-  content: attr(data-tooltip);
-  position: absolute;
-  bottom: 100%;
-  left: 50%;
-  transform: translateX(-50%);
-  margin-bottom: 6px;
-  padding: 4px 8px;
-  font-size: 11px;
-  color: var(--text-normal);
-  background: var(--background-secondary);
-  border: 1px solid var(--background-modifier-border);
-  border-radius: 4px;
-  white-space: nowrap;
-  opacity: 0;
-  visibility: hidden;
-  transition: opacity 0.15s ease, visibility 0.15s ease;
-  pointer-events: none;
-  z-index: 100;
-}
-
-.claudian-context-meter:hover::after {
-  opacity: 1;
-  visibility: visible;
+.claudian-context-meter.claudian-clickable {
+  cursor: pointer;
 }
 
 .claudian-context-meter-gauge {
@@ -49,6 +26,14 @@
   height: 16px;
 }
 
+.claudian-context-meter--compacting .claudian-context-meter-gauge svg {
+  animation: claudian-context-meter-spin 0.9s linear infinite;
+}
+
+.claudian-context-meter--compacting .claudian-meter-fill {
+  stroke-dashoffset: 0 !important;
+}
+
 .claudian-meter-bg {
   stroke: var(--background-modifier-border);
 }
@@ -58,19 +43,98 @@
   transition: stroke-dashoffset 0.3s ease, stroke 0.3s ease;
 }
 
-.claudian-context-meter-percent {
-  font-size: 11px;
-  color: var(--claudian-brand);
-  min-width: 24px;
-  text-align: end;
-  transition: color 0.3s ease;
-}
-
 /* Warning state (> 80%) - pale red */
 .claudian-context-meter.warning .claudian-meter-fill {
   stroke: #E57373;
 }
 
-.claudian-context-meter.warning .claudian-context-meter-percent {
-  color: #E57373;
+/* Context usage popup */
+.claudian-context-popup {
+  position: absolute;
+  z-index: 1000;
+  min-width: 180px;
+  padding: 12px;
+  background: var(--background-primary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  font-size: 12px;
+}
+
+.claudian-context-popup-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+  font-weight: 600;
+  color: var(--text-normal);
+}
+
+.claudian-context-popup-close {
+  cursor: pointer;
+  font-size: 16px;
+  color: var(--text-muted);
+  padding: 2px 4px;
+}
+
+.claudian-context-popup-close:hover {
+  color: var(--text-normal);
+}
+
+.claudian-context-popup-content {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.claudian-context-popup-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.claudian-context-popup-label {
+  color: var(--text-muted);
+}
+
+.claudian-context-popup-value {
+  color: var(--text-normal);
+  font-weight: 500;
+}
+
+.claudian-context-popup-actions {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--background-modifier-border);
+}
+
+.claudian-context-popup-compact-btn {
+  width: 100%;
+  padding: 6px 12px;
+  font-size: 12px;
+  color: var(--text-normal);
+  background: var(--background-secondary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.claudian-context-popup-compact-btn:hover {
+  background: var(--background-modifier-hover);
+}
+
+.claudian-context-popup-compact-btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+@keyframes claudian-context-meter-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }

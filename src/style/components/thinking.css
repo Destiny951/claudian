@@ -1,19 +1,10 @@
-.claudian-thinking {
-  color: var(--claudian-brand);
-  font-style: italic;
-  padding: 4px 0;
-  text-align: start;
-  animation: thinking-pulse 1.5s ease-in-out infinite;
-}
-
-.claudian-thinking.claudian-thinking--compact {
-  color: var(--claudian-compact);
-}
-
-.claudian-thinking-hint {
-  color: var(--text-muted);
-  font-style: normal;
-  font-variant-numeric: tabular-nums;
+@keyframes claudian-thinking-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .claudian-thinking-block {

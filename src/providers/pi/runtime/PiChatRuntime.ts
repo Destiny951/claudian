@@ -15,7 +15,7 @@ import type {
   SessionUpdateResult,
   SubagentRuntimeState,
 } from '../../../core/runtime/types';
-import type { ChatMessage, Conversation, SlashCommand, StreamChunk } from '../../../core/types';
+import type { ChatMessage, Conversation, SlashCommand, StreamChunk, UsageInfo } from '../../../core/types';
 import type ClaudianPlugin from '../../../main';
 import { appendBrowserContext } from '../../../utils/browser';
 import { appendCanvasContext } from '../../../utils/canvas';
@@ -25,6 +25,7 @@ import { getVaultPath } from '../../../utils/path';
 import { PiEventAdapter } from '../adapters/PiEventAdapter';
 import type { PiEvent } from '../adapters/types';
 import { PiBridgeClient } from '../bridge/PiBridgeClient';
+import type { PiContextUsage } from '../bridge/protocol';
 import { PI_PROVIDER_CAPABILITIES } from '../capabilities';
 
 export class PiChatRuntime implements ChatRuntime {
@@ -34,15 +35,33 @@ export class PiChatRuntime implements ChatRuntime {
   private bridge: PiBridgeClient;
   private adapter: PiEventAdapter;
   private pendingChunks: StreamChunk[] = [];
-  private resolveChunk: ((chunk: StreamChunk) => void) | null = null;
+  private resolveChunk: ((chunk: StreamChunk | null) => void) | null = null;
   private ready = false;
   private desiredSessionId: string | null = null;
   private sessionId: string | null = null;
+  private pendingInitUsage: UsageInfo | null = null;
+
+  private mapPiUsage(usage: PiContextUsage | null | undefined): UsageInfo | null {
+    if (!usage) {
+      return null;
+    }
+
+    return {
+      inputTokens: usage.tokens,
+      contextWindow: usage.contextWindow,
+      contextTokens: usage.tokens,
+      percentage: usage.percent,
+      contextWindowIsAuthoritative: true,
+    };
+  }
 
   constructor(plugin: ClaudianPlugin) {
     this.plugin = plugin;
     this.bridge = new PiBridgeClient(plugin);
     this.adapter = new PiEventAdapter();
+    this.bridge.onInitContextUsage = (piUsage) => {
+      this.pendingInitUsage = this.mapPiUsage(piUsage);
+    };
   }
 
   getCapabilities(): Readonly<ProviderCapabilities> {
@@ -115,6 +134,13 @@ export class PiChatRuntime implements ChatRuntime {
       }
     }
 
+    // Send pending init usage before starting the stream
+    // This captures context usage from restored sessions
+    if (this.pendingInitUsage) {
+      yield { type: 'usage', usage: this.pendingInitUsage };
+      this.pendingInitUsage = null;
+    }
+
     this.pendingChunks = [];
     this.resolveChunk = null;
 
@@ -131,20 +157,29 @@ export class PiChatRuntime implements ChatRuntime {
     };
 
     try {
-      const promptPromise = this.bridge.prompt(turn.prompt, handleEvent);
+      let promptSettled = false;
+      const promptPromise = this.bridge.prompt(turn.prompt, handleEvent).finally(() => {
+        promptSettled = true;
+        if (this.resolveChunk) {
+          this.resolveChunk(null);
+          this.resolveChunk = null;
+        }
+      });
 
       while (true) {
         if (this.pendingChunks.length > 0) {
           const chunk = this.pendingChunks.shift()!;
-          if (chunk.type === 'done') break;
           yield chunk;
+        } else if (promptSettled) {
+          break;
         } else {
-          const waitForChunk = new Promise<StreamChunk>((resolve) => {
+          const waitForChunk = new Promise<StreamChunk | null>((resolve) => {
             this.resolveChunk = resolve;
           });
           const chunk = await waitForChunk;
-          if (chunk.type === 'done') break;
-          yield chunk;
+          if (chunk) {
+            yield chunk;
+          }
         }
       }
 
@@ -253,5 +288,38 @@ export class PiChatRuntime implements ChatRuntime {
 
   resolveSessionIdForFork(_conversation: Conversation | null): string | null {
     return this.getSessionId();
+  }
+
+  async getContextUsage(): Promise<UsageInfo | null> {
+    if (!this.ready) {
+      const ready = await this.ensureReady();
+      if (!ready) {
+        return null;
+      }
+    }
+
+    try {
+      const usage = await this.bridge.getContextUsage();
+      return this.mapPiUsage(usage);
+    } catch (error) {
+      console.error('[PiChatRuntime] Failed to get context usage:', error);
+      return null;
+    }
+  }
+
+  async compact(customInstructions?: string): Promise<{ tokensBefore: number; estimatedTokensAfter: number | null; summary?: string } | null> {
+    if (!this.ready) {
+      const ready = await this.ensureReady();
+      if (!ready) {
+        return null;
+      }
+    }
+
+    try {
+      return await this.bridge.compact(customInstructions);
+    } catch (error) {
+      console.error('[PiChatRuntime] Failed to compact:', error);
+      return null;
+    }
   }
 }

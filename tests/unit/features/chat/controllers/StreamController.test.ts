@@ -737,54 +737,48 @@ describe('StreamController - Text Content', () => {
     });
   });
 
-  describe('Timer lifecycle', () => {
-    it('should create timer interval when showing thinking indicator', () => {
+  describe('Run status lifecycle', () => {
+    it('should create timer interval when showing run status', () => {
       deps.state.responseStartTime = performance.now();
 
-      controller.showThinkingIndicator();
-      jest.advanceTimersByTime(500); // Past the debounce delay
+      controller.showRunStatus();
 
-      expect(deps.state.flavorTimerInterval).not.toBeNull();
+      expect(deps.state.streamStatusTimerInterval).not.toBeNull();
     });
 
-    it('should clear timer interval when hiding thinking indicator', () => {
+    it('should clear timer interval when hiding run status', () => {
       deps.state.responseStartTime = performance.now();
 
-      controller.showThinkingIndicator();
-      jest.advanceTimersByTime(500);
-      expect(deps.state.flavorTimerInterval).not.toBeNull();
+      controller.showRunStatus();
+      expect(deps.state.streamStatusTimerInterval).not.toBeNull();
 
-      controller.hideThinkingIndicator();
+      controller.hideRunStatus();
 
-      expect(deps.state.flavorTimerInterval).toBeNull();
+      expect(deps.state.streamStatusTimerInterval).toBeNull();
     });
 
     it('should clear timer interval in resetStreamingState', () => {
       deps.state.responseStartTime = performance.now();
 
-      controller.showThinkingIndicator();
-      jest.advanceTimersByTime(500);
-      expect(deps.state.flavorTimerInterval).not.toBeNull();
+      controller.showRunStatus();
+      expect(deps.state.streamStatusTimerInterval).not.toBeNull();
 
       controller.resetStreamingState();
 
-      expect(deps.state.flavorTimerInterval).toBeNull();
+      expect(deps.state.streamStatusTimerInterval).toBeNull();
     });
 
-    it('should not create duplicate intervals on multiple showThinkingIndicator calls', () => {
+    it('should not create duplicate intervals on multiple showRunStatus calls', () => {
       deps.state.responseStartTime = performance.now();
       const clearIntervalSpy = jest.spyOn(global, 'clearInterval');
 
-      controller.showThinkingIndicator();
-      jest.advanceTimersByTime(500);
-      const firstInterval = deps.state.flavorTimerInterval;
+      controller.showRunStatus();
+      const firstInterval = deps.state.streamStatusTimerInterval;
 
-      // Second call while indicator exists should not create a new interval
-      controller.showThinkingIndicator();
-      jest.advanceTimersByTime(500);
+      controller.showRunStatus();
 
-      // Should still have the same interval (no new one created since element exists)
-      expect(deps.state.flavorTimerInterval).toBe(firstInterval);
+      expect(deps.state.streamStatusTimerInterval).toBe(firstInterval);
+      expect(clearIntervalSpy).not.toHaveBeenCalled();
 
       clearIntervalSpy.mockRestore();
     });
@@ -826,7 +820,7 @@ describe('StreamController - Text Content', () => {
   });
 
   describe('Usage handling - edge cases', () => {
-    it('should skip usage when subagentsSpawnedThisStream > 0', async () => {
+    it('should skip usage when non-PI subagentsSpawnedThisStream > 0', async () => {
       const msg = createTestMessage();
       (deps.subagentManager as any).subagentsSpawnedThisStream = 1;
 
@@ -835,6 +829,22 @@ describe('StreamController - Text Content', () => {
       await controller.handleStreamChunk({ type: 'usage', usage, sessionId: 'session-1' }, msg);
 
       expect(deps.state.usage).toBeNull();
+    });
+
+    it('should keep usage updates for PI even when subagentsSpawnedThisStream > 0', async () => {
+      const msg = createTestMessage();
+      (deps.subagentManager as any).subagentsSpawnedThisStream = 1;
+      deps.getAgentService = () => ({
+        providerId: 'pi',
+        getSessionId: jest.fn().mockReturnValue('session-1'),
+        getCapabilities: jest.fn().mockReturnValue({ providerId: 'pi' }),
+      }) as any;
+
+      const usage = createMockUsage({ inputTokens: 100, contextWindow: 200, contextTokens: 100, percentage: 50 });
+
+      await controller.handleStreamChunk({ type: 'usage', usage, sessionId: 'session-1' }, msg);
+
+      expect(deps.state.usage).toEqual(usage);
     });
 
     it('should skip usage when chunk has sessionId but currentSessionId is null', async () => {
@@ -887,38 +897,26 @@ describe('StreamController - Text Content', () => {
     });
   });
 
-  describe('Thinking indicator - edge cases', () => {
-    it('should not show indicator when no currentContentEl', () => {
+  describe('Run status - edge cases', () => {
+    it('should not show run status when no currentContentEl', () => {
       deps.state.currentContentEl = null;
 
-      controller.showThinkingIndicator();
-      jest.advanceTimersByTime(500);
+      controller.showRunStatus();
 
-      expect(deps.state.thinkingEl).toBeNull();
+      expect(deps.state.streamStatusEl).toBeNull();
     });
 
-    it('should not show indicator when currentThinkingState is active', () => {
-      deps.state.currentThinkingState = { content: 'thinking...', container: {}, contentEl: {}, startTime: Date.now() } as any;
-
-      controller.showThinkingIndicator();
-      jest.advanceTimersByTime(500);
-
-      expect(deps.state.thinkingEl).toBeNull();
-    });
-
-    it('should re-append existing indicator to bottom when called again', () => {
+    it('should re-append existing run status to bottom when called again', () => {
       deps.state.responseStartTime = performance.now();
 
-      controller.showThinkingIndicator();
-      jest.advanceTimersByTime(500);
+      controller.showRunStatus();
 
-      const thinkingEl = deps.state.thinkingEl;
-      expect(thinkingEl).not.toBeNull();
+      const statusEl = deps.state.streamStatusEl;
+      expect(statusEl).not.toBeNull();
 
-      controller.showThinkingIndicator();
+      controller.showRunStatus();
 
-      expect(deps.state.thinkingEl).toBe(thinkingEl);
-      expect(deps.updateQueueIndicator).toHaveBeenCalled();
+      expect(deps.state.streamStatusEl).toBe(statusEl);
     });
   });
 
@@ -1829,23 +1827,21 @@ describe('StreamController - Text Content', () => {
     });
   });
 
-  describe('showThinkingIndicator - timer disconnection cleanup', () => {
+  describe('showRunStatus - timer disconnection cleanup', () => {
     it('should clear interval when timerSpan becomes disconnected from DOM', () => {
       // Use a non-zero value: with fake timers, performance.now() starts at 0,
       // and !0 is truthy which would cause updateTimer to return early.
       jest.advanceTimersByTime(1);
       deps.state.responseStartTime = performance.now();
 
-      controller.showThinkingIndicator();
-      jest.advanceTimersByTime(500); // Past debounce delay
+      controller.showRunStatus();
 
-      expect(deps.state.flavorTimerInterval).not.toBeNull();
+      expect(deps.state.streamStatusTimerInterval).not.toBeNull();
 
-      const thinkingEl = deps.state.thinkingEl;
-      expect(thinkingEl).not.toBeNull();
+      const statusEl = deps.state.streamStatusEl;
+      expect(statusEl).not.toBeNull();
 
-      // The timer span is the second child (first is flavor text, second is hint)
-      const timerSpan = thinkingEl!.children[1];
+      const timerSpan = statusEl!.children[2];
       expect(timerSpan).toBeDefined();
 
       // Mock elements don't have isConnected by default (undefined = falsy),
@@ -1854,8 +1850,7 @@ describe('StreamController - Text Content', () => {
 
       // Advance time - interval should still run (isConnected is true)
       jest.advanceTimersByTime(1000);
-      expect(deps.state.flavorTimerInterval).not.toBeNull();
-      // Verify the interval callback actually ran by checking the timer text was updated
+      expect(deps.state.streamStatusTimerInterval).not.toBeNull();
       expect((timerSpan as any).textContent).toContain('esc to interrupt');
 
       // Now simulate disconnection from DOM
@@ -1865,11 +1860,11 @@ describe('StreamController - Text Content', () => {
       jest.advanceTimersByTime(1000);
 
       // Interval should have been cleared because isConnected is false
-      expect(deps.state.flavorTimerInterval).toBeNull();
+      expect(deps.state.streamStatusTimerInterval).toBeNull();
     });
   });
 
-  describe('showThinkingIndicator - pre-existing interval', () => {
+  describe('showRunStatus - pre-existing interval', () => {
     it('should clear pre-existing interval before creating new one', () => {
       // Advance fake clock so performance.now() returns non-zero
       jest.advanceTimersByTime(1);
@@ -1877,16 +1872,15 @@ describe('StreamController - Text Content', () => {
       const clearIntervalSpy = jest.spyOn(global, 'clearInterval');
 
       // Manually set a pre-existing interval
-      deps.state.flavorTimerInterval = setInterval(() => {}, 9999) as unknown as ReturnType<typeof setInterval>;
+      deps.state.streamStatusTimerInterval = setInterval(() => {}, 9999) as unknown as ReturnType<typeof setInterval>;
 
-      controller.showThinkingIndicator();
-      jest.advanceTimersByTime(500);
+      controller.showRunStatus('Updated text');
 
       // clearInterval should have been called for the pre-existing interval
       expect(clearIntervalSpy).toHaveBeenCalled();
 
       // A new interval should have been created
-      expect(deps.state.flavorTimerInterval).not.toBeNull();
+      expect(deps.state.streamStatusTimerInterval).not.toBeNull();
 
       clearIntervalSpy.mockRestore();
     });
@@ -1904,19 +1898,18 @@ describe('StreamController - Text Content', () => {
     });
   });
 
-  describe('showThinkingIndicator - responseStartTime null in timer', () => {
+  describe('showRunStatus - responseStartTime null in timer', () => {
     it('should not update timer text when responseStartTime is null', () => {
       // Advance fake clock so performance.now() returns non-zero
       jest.advanceTimersByTime(1);
       deps.state.responseStartTime = performance.now();
 
-      controller.showThinkingIndicator();
-      jest.advanceTimersByTime(500);
+      controller.showRunStatus();
 
-      expect(deps.state.thinkingEl).not.toBeNull();
+      expect(deps.state.streamStatusEl).not.toBeNull();
 
       // Get timerSpan and set isConnected to true for proper timer operation
-      const timerSpan = deps.state.thinkingEl!.children[1];
+      const timerSpan = deps.state.streamStatusEl!.children[2];
       Object.defineProperty(timerSpan, 'isConnected', { value: true, configurable: true });
 
       // Clear responseStartTime to trigger early return in updateTimer
@@ -1926,7 +1919,7 @@ describe('StreamController - Text Content', () => {
       jest.advanceTimersByTime(1000);
 
       // Timer should still be set (interval not cleared by the null check)
-      expect(deps.state.flavorTimerInterval).not.toBeNull();
+      expect(deps.state.streamStatusTimerInterval).not.toBeNull();
     });
   });
 });

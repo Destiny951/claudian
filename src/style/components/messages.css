@@ -199,6 +199,35 @@
   font-style: italic;
 }
 
+.claudian-stream-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  color: var(--claudian-brand);
+  font-size: 12px;
+}
+
+.claudian-stream-status-spinner {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  flex: 0 0 auto;
+  animation: claudian-thinking-spin 0.9s linear infinite;
+}
+
+.claudian-stream-status-text {
+  font-style: italic;
+}
+
+.claudian-stream-status-hint {
+  color: var(--text-muted);
+  font-style: normal;
+  font-variant-numeric: tabular-nums;
+}
+
 /* Action buttons toolbar below user messages */
 .claudian-user-msg-actions {
   position: absolute;

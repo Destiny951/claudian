@@ -172,7 +172,7 @@ export type StreamChunk =
  */
 export interface UsageInfo {
   model?: string;
-  inputTokens: number;
+  inputTokens: number | null;
   /** Prompt caching: tokens used to create cache entries. Claude-specific; 0 if omitted. */
   cacheCreationInputTokens?: number;
   /** Prompt caching: tokens read from cache. Claude-specific; 0 if omitted. */
@@ -180,6 +180,6 @@ export interface UsageInfo {
   contextWindow: number;
   /** True when `contextWindow` came from provider runtime data instead of a local heuristic. */
   contextWindowIsAuthoritative?: boolean;
-  contextTokens: number;
-  percentage: number;
+  contextTokens: number | null;
+  percentage: number | null;
 }

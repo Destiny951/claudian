@@ -56,8 +56,7 @@
 
 .claudian-external-context-dropdown {
   position: absolute;
-  left: 50%;
-  transform: translateX(-50%);
+  left: 0;
   bottom: 100%;
   margin-bottom: 4px;
   min-width: 260px;

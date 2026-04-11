@@ -6,7 +6,7 @@ import type ClaudianPlugin from '../../../main';
 import { findNodeExecutable, getEnhancedPath, parseEnvironmentVariables } from '../../../utils/env';
 import { getVaultPath } from '../../../utils/path';
 import type { PiEvent } from '../adapters/types';
-import type { BridgeRequest, BridgeResponse, PiSkillInfo } from './protocol';
+import type { BridgeRequest, BridgeResponse, PiContextUsage, PiSessionStats, PiSkillInfo } from './protocol';
 
 type InitPending = {
   resolve: (sessionId: string | null) => void;
@@ -24,6 +24,21 @@ type ListSkillsPending = {
   reject: (error: Error) => void;
 };
 
+type ContextUsagePending = {
+  resolve: (usage: PiContextUsage | null) => void;
+  reject: (error: Error) => void;
+};
+
+type SessionStatsPending = {
+  resolve: (stats: PiSessionStats) => void;
+  reject: (error: Error) => void;
+};
+
+type CompactPending = {
+  resolve: (result: { tokensBefore: number; estimatedTokensAfter: number | null; summary?: string }) => void;
+  reject: (error: Error) => void;
+};
+
 export class PiBridgeClient {
   private plugin: ClaudianPlugin;
   private proc: ChildProcessWithoutNullStreams | null = null;
@@ -35,6 +50,10 @@ export class PiBridgeClient {
   private initPending = new Map<string, InitPending>();
   private promptPending = new Map<string, PromptPending>();
   private listSkillsPending = new Map<string, ListSkillsPending>();
+  private contextUsagePending = new Map<string, ContextUsagePending>();
+  private sessionStatsPending = new Map<string, SessionStatsPending>();
+  private compactPending = new Map<string, CompactPending>();
+  onInitContextUsage: ((usage: PiContextUsage) => void) | null = null;
 
   constructor(plugin: ClaudianPlugin) {
     this.plugin = plugin;
@@ -104,6 +123,33 @@ export class PiBridgeClient {
     return new Promise<PiSkillInfo[]>((resolve, reject) => {
       this.listSkillsPending.set(id, { resolve, reject });
       this.send({ type: 'discover_skills', id, cwd });
+    });
+  }
+
+  async getContextUsage(): Promise<PiContextUsage | null> {
+    await this.ensureProcess();
+    const id = this.nextId('get_context_usage');
+    return new Promise<PiContextUsage | null>((resolve, reject) => {
+      this.contextUsagePending.set(id, { resolve, reject });
+      this.send({ type: 'get_context_usage', id });
+    });
+  }
+
+  async getSessionStats(): Promise<PiSessionStats> {
+    await this.ensureProcess();
+    const id = this.nextId('get_session_stats');
+    return new Promise<PiSessionStats>((resolve, reject) => {
+      this.sessionStatsPending.set(id, { resolve, reject });
+      this.send({ type: 'get_session_stats', id });
+    });
+  }
+
+  async compact(customInstructions?: string): Promise<{ tokensBefore: number; estimatedTokensAfter: number | null; summary?: string }> {
+    await this.ensureProcess();
+    const id = this.nextId('compact');
+    return new Promise<{ tokensBefore: number; estimatedTokensAfter: number | null; summary?: string }>((resolve, reject) => {
+      this.compactPending.set(id, { resolve, reject });
+      this.send({ type: 'compact', id, customInstructions });
     });
   }
 
@@ -285,6 +331,40 @@ export class PiBridgeClient {
       return;
     }
 
+    if (message.type === 'context_usage') {
+      const pending = this.contextUsagePending.get(message.id);
+      if (pending) {
+        this.contextUsagePending.delete(message.id);
+        pending.resolve(message.usage);
+        return;
+      }
+      // If no pending request, this is initial context usage from session init
+      if (message.usage && this.onInitContextUsage) {
+        this.onInitContextUsage(message.usage);
+      }
+      return;
+    }
+
+    if (message.type === 'session_stats') {
+      const pending = this.sessionStatsPending.get(message.id);
+      if (!pending) {
+        return;
+      }
+      this.sessionStatsPending.delete(message.id);
+      pending.resolve(message.stats);
+      return;
+    }
+
+    if (message.type === 'compact_done') {
+      const pending = this.compactPending.get(message.id);
+      if (!pending) {
+        return;
+      }
+      this.compactPending.delete(message.id);
+      pending.resolve(message.result);
+      return;
+    }
+
     if (message.type === 'error') {
       if (message.id) {
         const initPending = this.initPending.get(message.id);
@@ -305,6 +385,27 @@ export class PiBridgeClient {
         if (listSkillsPending) {
           this.listSkillsPending.delete(message.id);
           listSkillsPending.reject(new Error(message.message));
+          return;
+        }
+
+        const contextUsagePending = this.contextUsagePending.get(message.id);
+        if (contextUsagePending) {
+          this.contextUsagePending.delete(message.id);
+          contextUsagePending.reject(new Error(message.message));
+          return;
+        }
+
+        const sessionStatsPending = this.sessionStatsPending.get(message.id);
+        if (sessionStatsPending) {
+          this.sessionStatsPending.delete(message.id);
+          sessionStatsPending.reject(new Error(message.message));
+          return;
+        }
+
+        const compactPending = this.compactPending.get(message.id);
+        if (compactPending) {
+          this.compactPending.delete(message.id);
+          compactPending.reject(new Error(message.message));
           return;
         }
       }
@@ -337,6 +438,21 @@ export class PiBridgeClient {
 
     for (const [id, pending] of this.listSkillsPending.entries()) {
       this.listSkillsPending.delete(id);
+      pending.reject(error);
+    }
+
+    for (const [id, pending] of this.contextUsagePending.entries()) {
+      this.contextUsagePending.delete(id);
+      pending.reject(error);
+    }
+
+    for (const [id, pending] of this.sessionStatsPending.entries()) {
+      this.sessionStatsPending.delete(id);
+      pending.reject(error);
+    }
+
+    for (const [id, pending] of this.compactPending.entries()) {
+      this.compactPending.delete(id);
       pending.reject(error);
     }
 

@@ -27,7 +27,6 @@ import type ClaudianPlugin from '../../../main';
 import { formatDurationMmSs } from '../../../utils/date';
 import { extractDiffData } from '../../../utils/diff';
 import { getVaultPath, normalizePathForVault } from '../../../utils/path';
-import { FLAVOR_TEXTS } from '../constants';
 import type { MessageRenderer } from '../rendering/MessageRenderer';
 import { resolveSubagentLifecycleAdapter } from '../rendering/subagentLifecycleResolution';
 import {
@@ -200,8 +199,9 @@ export class StreamController {
         ) {
           break;
         }
-        // Skip usage updates when subagents ran (SDK reports cumulative usage including subagents)
-        if (this.deps.subagentManager.subagentsSpawnedThisStream > 0) {
+        // PI session usage is queried from the current session state and remains valid
+        // even when the turn spawned subagents/tasks.
+        if (this.deps.subagentManager.subagentsSpawnedThisStream > 0 && this.getActiveProviderId() !== 'pi') {
           break;
         }
         if (!state.ignoreUsageUpdates) {
@@ -215,6 +215,10 @@ export class StreamController {
 
       default:
         break;
+    }
+
+    if (state.isStreaming) {
+      this.keepRunStatusAtBottom();
     }
 
     this.scrollToBottom();
@@ -307,7 +311,6 @@ export class StreamController {
         toolCall,
         parentEl: state.currentContentEl,
       });
-      this.showThinkingIndicator();
     }
   }
 
@@ -390,7 +393,6 @@ export class StreamController {
 
     existingToolCall.result = (existingToolCall.result ?? '') + chunk.content;
     updateToolCallResult(chunk.id, existingToolCall, state.toolCallElements);
-    this.showThinkingIndicator();
   }
 
   // ============================================
@@ -551,18 +553,15 @@ export class StreamController {
 
     // Check if it's an async task result
     if (this.handleAsyncTaskToolResult(chunk)) {
-      this.showThinkingIndicator();
       return;
     }
 
     // Check if it's an agent output result
     if (await this.handleAgentOutputToolResult(chunk)) {
-      this.showThinkingIndicator();
       return;
     }
 
     if (this.handleProviderSubagentResult(chunk, msg)) {
-      this.showThinkingIndicator();
       return;
     }
 
@@ -644,7 +643,6 @@ export class StreamController {
       }
     }
 
-    this.showThinkingIndicator();
   }
 
   // ============================================
@@ -654,8 +652,6 @@ export class StreamController {
   async appendText(text: string): Promise<void> {
     const { state, renderer } = this.deps;
     if (!state.currentContentEl) return;
-
-    this.hideThinkingIndicator();
 
     if (!state.currentTextEl) {
       state.currentTextEl = state.currentContentEl.createDiv({ cls: 'claudian-text-block' });
@@ -687,8 +683,6 @@ export class StreamController {
   async appendThinking(content: string): Promise<void> {
     const { state, renderer } = this.deps;
     if (!state.currentContentEl) return;
-
-    this.hideThinkingIndicator();
     if (!state.currentThinkingState) {
       state.currentThinkingState = createThinkingBlock(
         state.currentContentEl,
@@ -734,14 +728,11 @@ export class StreamController {
     switch (result.action) {
       case 'created_sync':
         this.recordSubagentInMessage(msg, result.subagentState.info, chunk.id);
-        this.showThinkingIndicator();
         break;
       case 'created_async':
         this.recordSubagentInMessage(msg, result.info, chunk.id, 'async');
-        this.showThinkingIndicator();
         break;
       case 'buffered':
-        this.showThinkingIndicator();
         break;
       case 'label_updated':
         break;
@@ -832,7 +823,6 @@ export class StreamController {
           isExpanded: false,
         };
         subagentManager.addSyncToolCall(parentToolUseId, toolCall);
-        this.showThinkingIndicator();
         break;
       }
 
@@ -876,7 +866,6 @@ export class StreamController {
       this.applySubagentToTaskToolCall(taskToolCall, finalized);
     }
 
-    this.showThinkingIndicator();
   }
 
   // ============================================
@@ -899,7 +888,6 @@ export class StreamController {
     this.deps.subagentManager.handleAgentOutputToolUse(toolCall);
 
     // Show flavor text while waiting for TaskOutput result
-    this.showThinkingIndicator();
   }
 
   private handleAsyncTaskToolResult(
@@ -1094,98 +1082,52 @@ export class StreamController {
     return true;
   }
 
-  // ============================================
-  // Thinking Indicator
-  // ============================================
-
-  /** Debounce delay before showing thinking indicator (ms). */
-  private static readonly THINKING_INDICATOR_DELAY = 400;
-
-  /**
-   * Schedules showing the thinking indicator after a delay.
-   * If content arrives before the delay, the indicator won't show.
-   * This prevents the indicator from appearing during active streaming.
-   * Note: Flavor text is hidden when model thinking block is active (thinking takes priority).
-   */
-  showThinkingIndicator(overrideText?: string, overrideCls?: string): void {
+  showRunStatus(text = 'Agent is still working...'): void {
     const { state } = this.deps;
-
-    // Early return if no content element
     if (!state.currentContentEl) return;
 
-    // Clear any existing timeout
-    if (state.thinkingIndicatorTimeout) {
-      clearTimeout(state.thinkingIndicatorTimeout);
-      state.thinkingIndicatorTimeout = null;
-    }
-
-    // Don't show flavor text while model thinking block is active
-    if (state.currentThinkingState) {
-      return;
-    }
-
-    // If indicator already exists, just re-append it to the bottom
-    if (state.thinkingEl) {
-      state.currentContentEl.appendChild(state.thinkingEl);
-      this.deps.updateQueueIndicator();
-      return;
-    }
-
-    // Schedule showing the indicator after a delay
-    state.thinkingIndicatorTimeout = setTimeout(() => {
-      state.thinkingIndicatorTimeout = null;
-      // Double-check we still have a content element, no indicator exists, and no thinking block
-      if (!state.currentContentEl || state.thinkingEl || state.currentThinkingState) return;
-
-      const cls = overrideCls
-        ? `claudian-thinking ${overrideCls}`
-        : 'claudian-thinking';
-      state.thinkingEl = state.currentContentEl.createDiv({ cls });
-      const text = overrideText || FLAVOR_TEXTS[Math.floor(Math.random() * FLAVOR_TEXTS.length)];
-      state.thinkingEl.createSpan({ text });
-
-      // Create timer span with initial value
-      const timerSpan = state.thinkingEl.createSpan({ cls: 'claudian-thinking-hint' });
-      const updateTimer = () => {
-        if (!state.responseStartTime) return;
-        // Check if element is still connected to DOM (prevents orphaned interval updates)
-        if (!timerSpan.isConnected) {
-          if (state.flavorTimerInterval) {
-            clearInterval(state.flavorTimerInterval);
-            state.flavorTimerInterval = null;
-          }
-          return;
-        }
-        const elapsedSeconds = Math.floor((performance.now() - state.responseStartTime) / 1000);
-        timerSpan.setText(` (esc to interrupt · ${formatDurationMmSs(elapsedSeconds)})`);
-      };
-      updateTimer(); // Initial update
-
-      // Start interval to update timer every second
-      if (state.flavorTimerInterval) {
-        clearInterval(state.flavorTimerInterval);
+    if (state.streamStatusEl) {
+      const textEl = state.streamStatusEl.querySelector('.claudian-stream-status-text') as HTMLElement | null;
+      if (textEl) {
+        textEl.setText(text);
       }
-      state.flavorTimerInterval = setInterval(updateTimer, 1000);
+      this.keepRunStatusAtBottom();
+      return;
+    }
 
-    }, StreamController.THINKING_INDICATOR_DELAY);
+    const statusEl = state.currentContentEl.createDiv({ cls: 'claudian-stream-status' });
+    statusEl.createSpan({ cls: 'claudian-stream-status-spinner', attr: { 'aria-hidden': 'true' } });
+    statusEl.createSpan({ cls: 'claudian-stream-status-text', text });
+    const timerSpan = statusEl.createSpan({ cls: 'claudian-stream-status-hint' });
+    const updateTimer = () => {
+      if (!state.responseStartTime) return;
+      if (!timerSpan.isConnected) {
+        state.clearStreamStatusTimerInterval();
+        return;
+      }
+      const elapsedSeconds = Math.floor((performance.now() - state.responseStartTime) / 1000);
+      timerSpan.setText(` (esc to interrupt · ${formatDurationMmSs(elapsedSeconds)})`);
+    };
+    updateTimer();
+    state.clearStreamStatusTimerInterval();
+    state.streamStatusTimerInterval = setInterval(updateTimer, 1000);
+    state.streamStatusEl = statusEl;
+    this.keepRunStatusAtBottom();
   }
 
-  /** Hides the thinking indicator and cancels any pending show timeout. */
-  hideThinkingIndicator(): void {
+  hideRunStatus(): void {
     const { state } = this.deps;
-
-    // Cancel any pending show timeout
-    if (state.thinkingIndicatorTimeout) {
-      clearTimeout(state.thinkingIndicatorTimeout);
-      state.thinkingIndicatorTimeout = null;
+    state.clearStreamStatusTimerInterval();
+    if (state.streamStatusEl) {
+      state.streamStatusEl.remove();
+      state.streamStatusEl = null;
     }
+  }
 
-    // Clear timer interval (but preserve responseStartTime for duration capture)
-    state.clearFlavorTimerInterval();
-
-    if (state.thinkingEl) {
-      state.thinkingEl.remove();
-      state.thinkingEl = null;
+  private keepRunStatusAtBottom(): void {
+    const { state } = this.deps;
+    if (state.currentContentEl && state.streamStatusEl) {
+      state.currentContentEl.appendChild(state.streamStatusEl);
     }
   }
 
@@ -1196,7 +1138,6 @@ export class StreamController {
   private renderCompactBoundary(): void {
     const { state } = this.deps;
     if (!state.currentContentEl) return;
-    this.hideThinkingIndicator();
     const el = state.currentContentEl.createDiv({ cls: 'claudian-compact-boundary' });
     el.createSpan({ cls: 'claudian-compact-boundary-label', text: 'Conversation compacted' });
   }
@@ -1271,7 +1212,7 @@ export class StreamController {
 
   resetStreamingState(): void {
     const { state } = this.deps;
-    this.hideThinkingIndicator();
+    this.hideRunStatus();
     state.currentContentEl = null;
     state.currentTextEl = null;
     state.currentTextContent = '';

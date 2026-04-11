@@ -1,12 +1,47 @@
 import { createInterface } from 'node:readline';
+import path from 'node:path';
 import { pathToFileURL } from 'node:url';
+import fs from 'node:fs';
+import os from 'node:os';
 
 const DEFAULT_PI_SDK_PATH = '/Users/zl-q/.nvm/versions/node/v24.14.1/lib/node_modules/@mariozechner/pi-coding-agent/dist/index.js';
 const DEFAULT_AGENT_DIR = `${process.env.HOME ?? ''}/.pi/agent`;
 
 let sdkPromise = null;
+let compactionHelpersPromise = null;
 let session = null;
 let sessionCwd = null;
+
+async function loadCompactionHelpers() {
+  if (compactionHelpersPromise) {
+    return compactionHelpersPromise;
+  }
+
+  compactionHelpersPromise = (async () => {
+    const sdkPath = process.env.PI_SDK_PATH || DEFAULT_PI_SDK_PATH;
+    const basePath = sdkPath.startsWith('file://')
+      ? new URL(sdkPath).pathname
+      : sdkPath;
+    const compactionModulePath = path.join(path.dirname(basePath), 'core', 'compaction', 'index.js');
+    return import(pathToFileURL(compactionModulePath).href);
+  })();
+
+  return compactionHelpersPromise;
+}
+
+async function estimateTokensAfterCompaction(messages) {
+  if (!Array.isArray(messages) || messages.length === 0) {
+    return null;
+  }
+
+  try {
+    const helpers = await loadCompactionHelpers();
+    const estimate = helpers.estimateContextTokens?.(messages);
+    return typeof estimate?.tokens === 'number' ? estimate.tokens : null;
+  } catch {
+    return null;
+  }
+}
 
 function write(message) {
   process.stdout.write(`${JSON.stringify(message)}\n`);
@@ -124,7 +159,23 @@ async function handleInit(message) {
 
   try {
     await ensureSession(message.cwd, message.sessionId);
+    
+    // Send init_ok first
     write({ type: 'init_ok', id: message.id, sessionId: session?.sessionId ?? null });
+    
+    // Then send initial context_usage if available (for restored sessions)
+    const usage = session?.getContextUsage();
+    if (usage && usage.tokens !== null && usage.percent !== null) {
+      write({
+        type: 'context_usage',
+        id: message.id,
+        usage: {
+          tokens: usage.tokens,
+          contextWindow: usage.contextWindow,
+          percent: usage.percent,
+        },
+      });
+    }
   } catch (error) {
     write({ type: 'error', id: message.id, message: toErrorMessage(error) });
   }
@@ -152,6 +203,19 @@ async function handlePrompt(message) {
     if (!sawAgentEnd) {
       write({ type: 'prompt_event', id: message.id, event: { type: 'agent_end' } });
     }
+
+    const usage = session.getContextUsage();
+    write({
+      type: 'prompt_event',
+      id: message.id,
+      event: {
+        type: 'context_usage',
+        tokens: usage?.tokens ?? null,
+        contextWindow: usage?.contextWindow ?? null,
+        percent: usage?.percent ?? null,
+      },
+    });
+
     write({ type: 'prompt_done', id: message.id });
   } catch (error) {
     write({ type: 'error', id: message.id, message: toErrorMessage(error) });
@@ -269,6 +333,100 @@ async function handleDiscoverSkills(message) {
   }
 }
 
+async function handleGetContextUsage(message) {
+  if (!session) {
+    write({ type: 'error', id: message.id, message: 'Session not initialized. Send init first.' });
+    return;
+  }
+
+  try {
+    const usage = session.getContextUsage();
+    if (!usage) {
+      write({ type: 'context_usage', id: message.id, usage: null });
+      return;
+    }
+    write({
+      type: 'context_usage',
+      id: message.id,
+      usage: {
+        tokens: usage.tokens,
+        contextWindow: usage.contextWindow,
+        percent: usage.percent,
+      },
+    });
+  } catch (error) {
+    write({ type: 'error', id: message.id, message: toErrorMessage(error) });
+  }
+}
+
+async function handleGetSessionStats(message) {
+  if (!session) {
+    write({ type: 'error', id: message.id, message: 'Session not initialized. Send init first.' });
+    return;
+  }
+
+  try {
+    const stats = session.getSessionStats();
+    write({
+      type: 'session_stats',
+      id: message.id,
+      stats: {
+        tokens: stats.tokens,
+        cost: stats.cost,
+        contextUsage: stats.contextUsage
+          ? {
+              tokens: stats.contextUsage.tokens,
+              contextWindow: stats.contextUsage.contextWindow,
+              percent: stats.contextUsage.percent,
+            }
+          : undefined,
+      },
+    });
+  } catch (error) {
+    write({ type: 'error', id: message.id, message: toErrorMessage(error) });
+  }
+}
+
+async function handleCompact(message) {
+  if (!session) {
+    write({ type: 'error', id: message.id, message: 'Session not initialized. Send init first.' });
+    return;
+  }
+  const agentDir = process.env.PI_AGENT_DIR || DEFAULT_AGENT_DIR;
+  const agentYamlPath = path.join(agentDir, 'agent.yaml');
+  let hasAgentYaml = false;
+  try {
+    hasAgentYaml = fs.existsSync(agentYamlPath);
+  } catch {
+    // ignore
+  }
+  
+  try {
+    const result = await session.compact(message.customInstructions);
+    const estimatedTokensAfter = await estimateTokensAfterCompaction(session?.messages ?? []);
+    const sdkModel = session?.model;
+    const modelId = sdkModel?.id || sdkModel?.modelId || 'unknown';
+    
+    write({
+      type: 'compact_done',
+      id: message.id,
+      result: {
+        tokensBefore: result?.tokensBefore ?? 0,
+        estimatedTokensAfter,
+        summary: result?.summary,
+        _diagnostics: {
+          modelId,
+          hasAgentYaml,
+          summaryLength: result?.summary?.length ?? 0,
+          messagesCount: session?.messages?.length ?? 0,
+        },
+      },
+    });
+  } catch (error) {
+    write({ type: 'error', id: message.id, message: toErrorMessage(error) });
+  }
+}
+
 const rl = createInterface({
   input: process.stdin,
   crlfDelay: Infinity,
@@ -311,6 +469,15 @@ rl.on('line', async (line) => {
       break;
     case 'discover_skills':
       await handleDiscoverSkills(message);
+      break;
+    case 'get_context_usage':
+      await handleGetContextUsage(message);
+      break;
+    case 'get_session_stats':
+      await handleGetSessionStats(message);
+      break;
+    case 'compact':
+      await handleCompact(message);
       break;
     default:
       write({ type: 'error', id: message.id, message: `Unknown request type: ${message.type}` });

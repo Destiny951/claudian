@@ -144,8 +144,8 @@ function createMockDeps(overrides: Partial<InputControllerDeps> = {}): InputCont
       updateLiveUserMessage: jest.fn(),
     } as any,
     streamController: {
-      showThinkingIndicator: jest.fn(),
-      hideThinkingIndicator: jest.fn(),
+      showRunStatus: jest.fn(),
+      hideRunStatus: jest.fn(),
       handleStreamChunk: jest.fn(),
       finalizeCurrentTextBlock: jest.fn(),
       finalizeCurrentThinkingBlock: jest.fn(),
@@ -1789,13 +1789,13 @@ describe('InputController - Message Queue', () => {
       expect(imageContextManager.setImages).toHaveBeenCalledWith(mockImages);
     });
 
-    it('should hide thinking indicator when cancelling', () => {
+    it('should hide run status when cancelling', () => {
       deps.state.isStreaming = true;
       controller = new InputController(deps);
 
       controller.cancelStreaming();
 
-      expect(deps.streamController.hideThinkingIndicator).toHaveBeenCalled();
+      expect(deps.streamController.hideRunStatus).toHaveBeenCalled();
     });
 
     it('should be a no-op when not streaming', () => {
@@ -1826,7 +1826,7 @@ describe('InputController - Message Queue', () => {
       await controller.sendMessage();
 
       expect(mockNotice).toHaveBeenCalledWith('Failed to initialize agent service. Please try again.');
-      expect(deps.streamController.hideThinkingIndicator).toHaveBeenCalled();
+      expect(deps.streamController.hideRunStatus).toHaveBeenCalled();
       expect(deps.state.isStreaming).toBe(false);
       expect((deps as any).mockAgentService.query).not.toHaveBeenCalled();
     });

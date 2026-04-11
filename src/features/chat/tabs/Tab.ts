@@ -45,7 +45,7 @@ import { createInputToolbar } from '../ui/InputToolbar';
 import { InstructionModeManager as InstructionModeManagerClass } from '../ui/InstructionModeManager';
 import { NavigationSidebar } from '../ui/NavigationSidebar';
 import { StatusPanel } from '../ui/StatusPanel';
-import { recalculateUsageForModel } from '../utils/usageInfo';
+import { calculateUsagePercentage, recalculateUsageForModel } from '../utils/usageInfo';
 import { getTabProviderId } from './providerResolution';
 import type { TabData, TabDOMElements, TabId, TabProviderContext } from './types';
 import { generateTabId, TEXTAREA_MAX_HEIGHT_PERCENT, TEXTAREA_MIN_MAX_HEIGHT } from './types';
@@ -248,6 +248,42 @@ function applyProviderUIGating(tab: TabData, plugin: ClaudianPlugin): void {
 
   tab.ui.imageContextManager?.setEnabled(capabilities.supportsImageAttachments);
   tab.ui.contextUsageMeter?.update(tab.state.usage);
+}
+
+async function refreshContextUsageForBoundConversation(
+  tab: TabData,
+  reason: 'loaded' | 'switched' | 'usage_update',
+): Promise<void> {
+  const runtime = tab.service;
+  const conversationId = tab.state.currentConversationId;
+  if (!runtime?.getContextUsage || !conversationId) {
+    return;
+  }
+
+  try {
+    const usage = await runtime.getContextUsage();
+    if (usage) {
+      tab.state.usage = usage;
+      tab.ui.contextUsageMeter?.update(usage);
+    }
+  } catch {
+    // Silently ignore usage refresh errors during tab load
+  }
+}
+
+function coerceTokenCount(value: unknown): number | null {
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (typeof value === 'string') {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return null;
+}
+
+function formatTokenCount(value: number | null): string {
+  if (value === null) return 'unknown';
+  if (value >= 1000) return `${Math.round(value / 1000)}k`;
+  return String(Math.round(value));
 }
 
 function syncTabProviderServices(
@@ -815,6 +851,55 @@ function initializeInputToolbar(
         mode === 'plan' && getTabCapabilities(tab, plugin).supportsPlanMode,
       );
     },
+    onCompact: async () => {
+      if (!tab.serviceInitialized || !tab.service) {
+        await initializeTabService(tab, plugin);
+        setupServiceCallbacks(tab, plugin);
+      }
+
+      const runtime = tab.service;
+      if (!runtime?.compact) {
+        new Notice('Compact is not supported by this provider');
+        return;
+      }
+      const beforeUsage = tab.state.usage;
+      tab.ui.contextUsageMeter?.setCompacting?.(true);
+      try {
+        const result = await runtime.compact();
+        const refreshedUsage = await runtime.getContextUsage?.() ?? null;
+        if (refreshedUsage?.contextTokens !== null || !result || result.estimatedTokensAfter === null) {
+          tab.state.usage = refreshedUsage;
+        } else {
+          const contextWindow = refreshedUsage?.contextWindow
+            ?? beforeUsage?.contextWindow
+            ?? 0;
+          tab.state.usage = {
+            ...(beforeUsage ?? {}),
+            ...(refreshedUsage ?? {}),
+            inputTokens: result.estimatedTokensAfter,
+            contextTokens: result.estimatedTokensAfter,
+            percentage: calculateUsagePercentage(result.estimatedTokensAfter, contextWindow),
+            contextWindow,
+          };
+        }
+
+        const beforeTokens = coerceTokenCount(result?.tokensBefore) ?? beforeUsage?.contextTokens ?? null;
+        const afterTokens = refreshedUsage?.contextTokens
+          ?? coerceTokenCount(result?.estimatedTokensAfter)
+          ?? null;
+
+        if (beforeTokens !== null || afterTokens !== null) {
+          new Notice(`Context compacted: ${formatTokenCount(beforeTokens)} -> ${formatTokenCount(afterTokens)} tokens`);
+        } else {
+          new Notice('Context compaction completed');
+        }
+      } catch (error) {
+        const msg = error instanceof Error ? error.message : 'Compact failed';
+        new Notice(msg);
+      } finally {
+        tab.ui.contextUsageMeter?.setCompacting?.(false);
+      }
+    },
   });
 
   tab.ui.modelSelector = toolbarComponents.modelSelector;
@@ -900,10 +985,11 @@ export function initializeTabUI(
   initializeInstructionAndTodo(tab, plugin);
   initializeInputToolbar(tab, plugin, options.getProviderCatalogConfig, options.onProviderChanged);
 
-  state.callbacks = {
+state.callbacks = {
     ...state.callbacks,
-    onUsageChanged: (usage) => {
-      tab.ui.contextUsageMeter?.update(usage);
+    onUsageChanged: () => {
+      if (state.isStreaming) return;
+      refreshContextUsageForBoundConversation(tab, 'usage_update').catch(() => {});
     },
     onTodosChanged: (todos) => tab.ui.statusPanel?.updateTodos(todos),
     onAutoScrollChanged: () => tab.ui.navigationSidebar?.updateVisibility(),
@@ -1252,8 +1338,14 @@ export function initializeTabControllers(
         applyProviderUIGating(tab, plugin);
         syncSlashCommandDropdownForProvider(tab, plugin, getProviderCatalogConfig);
       },
-      onConversationLoaded: () => ui.slashCommandDropdown?.resetSdkSkillsCache(),
-      onConversationSwitched: () => ui.slashCommandDropdown?.resetSdkSkillsCache(),
+      onConversationLoaded: () => {
+        ui.slashCommandDropdown?.resetSdkSkillsCache();
+        void refreshContextUsageForBoundConversation(tab, 'loaded');
+      },
+      onConversationSwitched: () => {
+        ui.slashCommandDropdown?.resetSdkSkillsCache();
+        void refreshContextUsageForBoundConversation(tab, 'switched');
+      },
     }
   );
 

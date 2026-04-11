@@ -40,7 +40,7 @@ import type { ChatState } from '../state/ChatState';
 import type { QueuedMessage } from '../state/types';
 import type { FileContextManager } from '../ui/FileContext';
 import type { ImageContextManager } from '../ui/ImageContext';
-import type { AddExternalContextResult, McpServerSelector } from '../ui/InputToolbar';
+import type { AddExternalContextResult, McpServerSelector } from '../ui/toolbar';
 import type { InstructionModeManager } from '../ui/InstructionModeManager';
 import type { StatusPanel } from '../ui/StatusPanel';
 import type { BrowserSelectionController } from './BrowserSelectionController';
@@ -299,6 +299,7 @@ export class InputController {
     state.addMessage(assistantMsg);
     this.activeStreamingAssistantMessage = assistantMsg;
     this.activateStreamingAssistantMessage(assistantMsg);
+    streamController.showRunStatus?.(isCompact ? 'Compacting context...' : 'Agent is still working...');
     this.pendingProviderUserMessages = [{
       displayContent,
       images: imagesForMessage,
@@ -306,10 +307,6 @@ export class InputController {
     this.sawInitialProviderUserMessage = false;
     this.awaitingProviderAssistantStart = true;
 
-    streamController.showThinkingIndicator(
-      isCompact ? 'Compacting...' : undefined,
-      isCompact ? 'claudian-thinking--compact' : undefined,
-    );
     state.responseStartTime = performance.now();
 
     let wasInterrupted = false;
@@ -322,7 +319,7 @@ export class InputController {
       const ready = await this.deps.ensureServiceInitialized();
       if (!ready) {
         new Notice('Failed to initialize agent service. Please try again.');
-        streamController.hideThinkingIndicator();
+        streamController.hideRunStatus?.();
         state.isStreaming = false;
         this.activeStreamingAssistantMessage = null;
         this.resetProviderMessageBoundaryState();
@@ -333,6 +330,7 @@ export class InputController {
     const agentService = this.getAgentService();
     if (!agentService) {
       new Notice('Agent service not available. Please reload the plugin.');
+      streamController.hideRunStatus?.();
       this.activeStreamingAssistantMessage = null;
       this.resetProviderMessageBoundaryState();
       return;
@@ -396,7 +394,7 @@ export class InputController {
       planCompleted = planCompleted || turnMetadata.planCompleted === true;
 
       // ALWAYS clear the timer interval, even on stream invalidation (prevents memory leaks)
-      state.clearFlavorTimerInterval();
+      state.clearStreamStatusTimerInterval();
 
       // Skip remaining cleanup if stream was invalidated (tab closed or conversation switched)
       if (!wasInvalidated && state.streamGeneration === streamGeneration) {
@@ -404,7 +402,7 @@ export class InputController {
         if (didCancelThisTurn && !state.pendingNewSessionPlan) {
           await streamController.appendText('\n\n<span class="claudian-interrupted">Interrupted</span> <span class="claudian-interrupted-hint">· What should Claudian do instead?</span>');
         }
-        streamController.hideThinkingIndicator();
+        streamController.hideRunStatus?.();
         state.isStreaming = false;
         state.cancelRequested = false;
         this.restorePendingSteerMessageToQueue();
@@ -914,7 +912,7 @@ export class InputController {
   }
 
   private activateStreamingAssistantMessage(message: ChatMessage): void {
-    const { state, renderer } = this.deps;
+    const { state, renderer, streamController } = this.deps;
     const msgEl = renderer.addMessage(message);
     const contentEl = msgEl.querySelector('.claudian-message-content') as HTMLElement | null;
 
@@ -930,6 +928,9 @@ export class InputController {
     state.currentTextEl = null;
     state.currentTextContent = '';
     state.currentThinkingState = null;
+    if (state.isStreaming) {
+      streamController.showRunStatus?.('Agent is still working...');
+    }
   }
 
   private resetProviderMessageBoundaryState(): void {
@@ -973,7 +974,7 @@ export class InputController {
         this.deps.streamController.finalizeCurrentTextBlock(previousAssistant);
       }
     }
-    this.deps.streamController.hideThinkingIndicator();
+    this.deps.streamController.hideRunStatus?.();
 
     const displayContent = expected?.displayContent ?? chunk.content;
     const persistedContent = expected?.persistedContent ?? displayContent;
@@ -1003,7 +1004,7 @@ export class InputController {
     this.deps.state.addMessage(assistantMessage);
     this.activeStreamingAssistantMessage = assistantMessage;
     this.activateStreamingAssistantMessage(assistantMessage);
-    this.deps.streamController.showThinkingIndicator();
+    this.deps.streamController.showRunStatus?.('Agent is still working...');
     this.deps.state.responseStartTime = performance.now();
     this.awaitingProviderAssistantStart = true;
   }
@@ -1031,7 +1032,7 @@ export class InputController {
     this.deps.state.addMessage(assistantMessage);
     this.activeStreamingAssistantMessage = assistantMessage;
     this.activateStreamingAssistantMessage(assistantMessage);
-    this.deps.streamController.showThinkingIndicator();
+    this.deps.streamController.showRunStatus?.('Agent is still working...');
   }
 
   private shouldDiscardPendingAssistantPlaceholder(message: ChatMessage | null): boolean {
@@ -1146,7 +1147,7 @@ export class InputController {
     // Restore queued message to input instead of discarding
     this.restorePendingMessagesToInput();
     this.getAgentService()?.cancel();
-    streamController.hideThinkingIndicator();
+    streamController.hideRunStatus?.();
   }
 
   private syncScrollToBottomAfterRenderUpdates(): void {
@@ -1376,7 +1377,7 @@ export class InputController {
     signal?: AbortSignal,
     config?: InlineAskQuestionConfig,
   ): Promise<Record<string, string | string[]> | null> {
-    this.deps.streamController.hideThinkingIndicator();
+    this.deps.streamController.hideRunStatus?.();
     this.hideInputContainer(inputContainerEl);
 
     return new Promise<Record<string, string | string[]> | null>((resolve, reject) => {
@@ -1413,7 +1414,7 @@ export class InputController {
       throw new Error('Input container is detached from DOM');
     }
 
-    streamController.hideThinkingIndicator();
+    streamController.hideRunStatus?.();
     this.hideInputContainer(inputContainerEl);
 
     const enrichedInput = state.planFilePath

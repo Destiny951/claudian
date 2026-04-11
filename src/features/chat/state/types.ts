@@ -67,10 +67,8 @@ export interface ChatStateData {
   currentTextEl: HTMLElement | null;
   currentTextContent: string;
   currentThinkingState: ThinkingBlockState | null;
-  thinkingEl: HTMLElement | null;
+  streamStatusEl: HTMLElement | null;
   queueIndicatorEl: HTMLElement | null;
-  /** Debounce timeout for showing thinking indicator after inactivity. */
-  thinkingIndicatorTimeout: ReturnType<typeof setTimeout> | null;
 
   // Tool tracking maps
   toolCallElements: Map<string, HTMLElement>;
@@ -94,7 +92,7 @@ export interface ChatStateData {
 
   // Response timer state
   responseStartTime: number | null;
-  flavorTimerInterval: ReturnType<typeof setInterval> | null;
+  streamStatusTimerInterval: ReturnType<typeof setInterval> | null;
 
   // Pending plan content for approve-new-session (auto-sends in new session after stream ends)
   pendingNewSessionPlan: string | null;

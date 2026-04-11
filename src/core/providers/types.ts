@@ -33,6 +33,7 @@ export interface ProviderCapabilities {
   supportsInstructionMode: boolean;
   supportsMcpTools: boolean;
   supportsTurnSteer?: boolean;
+  supportsCompact?: boolean;
   reasoningControl: 'effort' | 'token-budget' | 'none';
   planPathPrefix?: string;
 }

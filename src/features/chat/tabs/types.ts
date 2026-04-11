@@ -24,7 +24,7 @@ import type {
   PermissionToggle,
   ServiceTierToggle,
   ThinkingBudgetSelector,
-} from '../ui/InputToolbar';
+} from '../ui/toolbar';
 import type { InstructionModeManager } from '../ui/InstructionModeManager';
 import type { NavigationSidebar } from '../ui/NavigationSidebar';
 import type { StatusPanel } from '../ui/StatusPanel';

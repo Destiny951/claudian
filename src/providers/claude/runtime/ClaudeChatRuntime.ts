@@ -265,6 +265,9 @@ export class ClaudianService implements ChatRuntime {
     }
 
     const usage = this.bufferedUsageChunk.usage;
+    if (usage.contextTokens === null) {
+      return null;
+    }
     const percentage = Math.min(
       100,
       Math.max(0, Math.round((usage.contextTokens / contextWindow) * 100)),
