@@ -68,11 +68,14 @@ npm install -g @mariozechner/pi-coding-agent
 
 ### 从 Release 安装
 
-1. 下载以下 4 个文件：
-   - `main.js`
-   - `manifest.json`
-   - `styles.css`
-   - `pi-bridge-server.mjs`（必需，PI bridge sidecar）
+1. 从 [Release 页面](https://github.com/Destiny951/claudian/releases) 下载以下 4 个文件：
+
+| 文件 | 来源 | 说明 |
+|------|------|------|
+| `main.js` | 构建生成 | esbuild 打包的主插件代码 |
+| `manifest.json` | 项目固有 | Obsidian 插件元数据 |
+| `styles.css` | 构建生成 | 插件样式 |
+| `pi-bridge-server.mjs` | 项目固有 | PI bridge sidecar（独立 Node.js 进程） |
 
 2. 放到你的 Vault 插件目录：
 
