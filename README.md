@@ -9,13 +9,32 @@
 - 上游项目: `YishenTu/claudian`
 - 上游地址: `https://github.com/YishenTu/claudian`
 
-这个 fork 保留了上游的通用聊天骨架、provider-neutral registry、设置投影和 Obsidian 集成层，但现在只内建 `pi` provider。
+感谢上游提供的多 Provider 架构、聊天侧边栏基础能力、以及与 Obsidian 的深度集成。
 
-## 当前方向
+## 本 Fork 的改进
 
-- 移除 Claude/Codex 的内建接入代码与设置入口
-- 聚焦 PI bridge、PI runtime、PI history、PI command catalog
-- 降低配置门槛，删除 `PI_AGENT_DIR` 和 `PI_SDK_PATH` 的手动输入
+相比上游项目，本 fork 做了以下核心改进：
+
+### 架构精简
+
+- **移除 Claude/Codex Provider**：删除了所有 Claude SDK 和 Codex app-server 相关代码，精简为 PI-only 架构
+- **移除 @anthropic-ai/claude-agent-sdk 依赖**：显著减小包体积和依赖复杂度
+- **删除冗余 Provider 代码**：移除 MCP 管理、CLI 解析、子代理系统等 PI 不需要的模块
+- **删除测试文件**：清理了 Claude/Codex 相关的单元测试和集成测试
+
+### PI Provider 增强
+
+- **自动路径推导**：PI agent 目录和 SDK 入口自动检测，无需手动配置 `PI_AGENT_DIR` 和 `PI_SDK_PATH`
+- **Bridge 架构**：通过 Node sidecar bridge 运行 PI SDK，避免 Obsidian/Electron 运行时的兼容性问题
+- **会话恢复**：完整支持会话切换、重启后 JSONL 历史回放
+- **工具调用渲染**：修复 tool block UI 显示问题
+- **环境变量传递**：正确继承父进程环境变量，支持 PI extensions 正常运行
+
+### 代码质量
+
+- **移除 console.log**：生产代码无 console 输出
+- **精简文档**：更新 CLAUDE.md 和 README，聚焦 PI-only 架构
+- **统一上下文渲染**：skill、current note、editor/browser/canvas 进入统一折叠 UI
 
 ## 主要能力
 
@@ -47,11 +66,27 @@ npm install -g @mariozechner/pi-coding-agent
 
 不再需要在插件设置里手动填写 `PI_AGENT_DIR` 或 `PI_SDK_PATH`。
 
-## 开发
+### 从 Release 安装
+
+1. 下载 `main.js`、`manifest.json`、`styles.css`
+2. 放到你的 Vault 插件目录：
+
+```text
+/path/to/vault/.obsidian/plugins/claudian/
+```
+
+3. 在 Obsidian 社区插件里启用 `Claudian`
+
+### 从源码开发
 
 ```bash
+git clone https://github.com/Destiny951/claudian.git
+cd claudian
 npm install
 npm run dev
+```
+
+```bash
 npm run typecheck
 npm run test
 npm run build
