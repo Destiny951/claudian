@@ -1,7 +1,7 @@
 import type { SlashCommandSource } from '../../types/settings';
 import type { ProviderId } from '../types';
 
-export type ProviderCommandKind = 'command' | 'skill';
+export type ProviderCommandKind = 'command' | 'skill' | 'prompt';
 export type ProviderCommandScope = 'builtin' | 'vault' | 'user' | 'system' | 'runtime';
 
 export interface ProviderCommandEntry {

@@ -934,6 +934,18 @@ export class MessageRenderer {
           details: files.join('\n') || trimmed,
         };
       }
+      case 'prompt':
+        return {
+          icon: 'file-code',
+          title: 'Prompt',
+          summary: attrs.get('name') ?? 'unknown',
+        };
+      case 'ext':
+        return {
+          icon: 'puzzle',
+          title: 'Extension',
+          summary: attrs.get('name') ?? 'unknown',
+        };
       default:
         return {
           icon: 'braces',

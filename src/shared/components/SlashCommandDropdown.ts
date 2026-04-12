@@ -215,10 +215,14 @@ export class SlashCommandDropdown {
     const allItems = this.buildItemList(includeBuiltIns);
 
     this.filteredItems = allItems
-      .filter(item =>
-        item.name.toLowerCase().includes(searchLower) ||
-        item.description?.toLowerCase().includes(searchLower)
-      )
+      .filter(item => {
+        const fullName = `${item.displayPrefix}${item.name}`;
+        const nameLower = item.name.toLowerCase();
+        const descriptionLower = item.description?.toLowerCase() ?? '';
+        return fullName.toLowerCase().includes(searchLower) ||
+               nameLower.includes(searchLower) ||
+               descriptionLower.includes(searchLower);
+      })
       .sort((a, b) => a.name.localeCompare(b.name));
 
     if (currentRequest !== this.requestId) return;

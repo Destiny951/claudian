@@ -270,9 +270,21 @@ export class InputController {
 
     fileContextManager?.markCurrentNoteSent();
 
-    const skillMatch = content.match(/^\/skill:(\S+)(?:\s+(.*))?$/);
-    const userDisplayContent = skillMatch ? (skillMatch[2] ?? '') : displayContent;
-    const contextBlocks = this.buildUserContextBlocks(turnRequest, skillMatch?.[1]);
+    const commandMatch = content.match(/^\/(skill|prompt):(\S+)(?:\s+(.*))?$/);
+    const commandType = commandMatch?.[1] as 'skill' | 'prompt' | undefined;
+    const commandName = commandMatch?.[2];
+    const commandArgs = commandMatch?.[3];
+    
+    const userDisplayContent = commandMatch ? (commandArgs ?? '') : displayContent;
+    const contextBlocks = this.buildUserContextBlocks(
+      turnRequest, 
+      commandType === 'skill' ? commandName : undefined,
+      commandType === 'prompt' ? commandName : undefined,
+    );
+
+    if (commandType === 'prompt' && commandName) {
+      turnRequest.text = `/${commandName}${commandArgs ? ` ${commandArgs}` : ''}`;
+    }
 
     const userMsg: ChatMessage = {
       id: this.deps.generateId(),
@@ -677,11 +689,16 @@ export class InputController {
   private buildUserContextBlocks(
     request: ChatTurnRequest,
     skillName?: string,
+    promptName?: string,
   ): ContentBlock[] {
     const blocks: ContentBlock[] = [];
 
     if (skillName) {
       blocks.push({ type: 'context', tag: `skill name="${skillName}"`, content: '' });
+    }
+
+    if (promptName) {
+      blocks.push({ type: 'context', tag: `prompt name="${promptName}"`, content: '' });
     }
 
     if (request.currentNotePath) {

@@ -36,7 +36,7 @@ export interface SlashCommand {
   model?: string;              // Optional provider-specific model override
   content: string;             // Prompt template with placeholders
   source?: SlashCommandSource; // Origin of the command (builtin, user, plugin, sdk)
-  kind?: 'command' | 'skill';  // Explicit type — replaces id-prefix heuristic
+  kind?: 'command' | 'skill' | 'prompt';  // Explicit type — replaces id-prefix heuristic
   // Provider-owned command metadata that the UI preserves and round-trips.
   disableModelInvocation?: boolean;  // Disable model invocation for this skill
   userInvocable?: boolean;           // Whether user can invoke this skill directly

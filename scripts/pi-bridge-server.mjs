@@ -506,16 +506,14 @@ async function handleListSkills(message) {
 
   try {
     const commands = await session.getCommands();
-    const skills = commands
-      .filter((cmd) => cmd.source === 'skill')
-      .map((cmd) => ({
-        name: cmd.name,
-        description: cmd.description,
-        source: cmd.source,
-        sourceInfo: {
-          path: cmd.sourceInfo?.path,
-        },
-      }));
+    const skills = commands.map((cmd) => ({
+      name: cmd.name,
+      description: cmd.description,
+      source: cmd.source,
+      sourceInfo: {
+        path: cmd.sourceInfo?.path,
+      },
+    }));
     write({ type: 'list_skills_ok', id: message.id, skills });
   } catch (error) {
     write({ type: 'error', id: message.id, message: toErrorMessage(error) });
@@ -530,7 +528,7 @@ async function handleDiscoverSkills(message) {
 
   try {
     const sdk = await loadSdk();
-    const { DefaultResourceLoader, SettingsManager, loadSkills } = sdk;
+    const { DefaultResourceLoader, SettingsManager } = sdk;
 
     const agentDir = DEFAULT_AGENT_DIR;
     let resourceLoader;
@@ -549,33 +547,55 @@ async function handleDiscoverSkills(message) {
       }
     }
 
-    let skills = [];
+    const commands = [];
+
     if (resourceLoader) {
-      const result = resourceLoader.getSkills();
-      skills = result.skills.map((skill) => ({
-        name: skill.name,
-        description: skill.description,
-        source: 'skill',
-        sourceInfo: {
-          path: skill.filePath,
-        },
-      }));
+      const skillsResult = resourceLoader.getSkills();
+      for (const skill of skillsResult.skills) {
+        commands.push({
+          name: skill.name,
+          description: skill.description,
+          source: 'skill',
+          sourceInfo: { path: skill.filePath },
+        });
+      }
+
+      const promptsResult = resourceLoader.getPrompts();
+      for (const prompt of promptsResult.prompts) {
+        commands.push({
+          name: prompt.name,
+          description: prompt.description,
+          source: 'prompt',
+          sourceInfo: { path: prompt.filePath },
+        });
+      }
+
+      const extensionsResult = resourceLoader.getExtensions();
+      for (const ext of extensionsResult.commands || []) {
+        commands.push({
+          name: ext.name,
+          description: ext.description,
+          source: 'extension',
+          sourceInfo: { path: ext.sourceInfo?.path },
+        });
+      }
     } else {
+      const { loadSkills } = sdk;
       const result = await loadSkills({
         cwd: message.cwd,
         agentDir,
       });
-      skills = result.skills.map((skill) => ({
-        name: skill.name,
-        description: skill.description,
-        source: 'skill',
-        sourceInfo: {
-          path: skill.filePath,
-        },
-      }));
+      for (const skill of result.skills) {
+        commands.push({
+          name: skill.name,
+          description: skill.description,
+          source: 'skill',
+          sourceInfo: { path: skill.filePath },
+        });
+      }
     }
 
-    write({ type: 'list_skills_ok', id: message.id, skills });
+    write({ type: 'list_skills_ok', id: message.id, skills: commands });
   } catch (error) {
     write({ type: 'error', id: message.id, message: toErrorMessage(error) });
   }

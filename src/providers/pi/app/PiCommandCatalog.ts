@@ -6,7 +6,7 @@ import type { PiSkillInfo } from '../bridge/protocol';
 export class PiCommandCatalog implements ProviderCommandCatalog {
   private bridge: PiBridgeClient;
   private cwd: string;
-  private cachedSkills: PiSkillInfo[] = [];
+  private cachedCommands: PiSkillInfo[] = [];
 
   constructor(bridge: PiBridgeClient, cwd: string) {
     this.bridge = bridge;
@@ -15,25 +15,25 @@ export class PiCommandCatalog implements ProviderCommandCatalog {
 
   async listDropdownEntries(context: { includeBuiltIns: boolean }): Promise<ProviderCommandEntry[]> {
     void context;
-    const skills = await this.fetchSkills();
-    return skills.map((skill) => this.skillToEntry(skill));
+    const commands = await this.fetchCommands();
+    return commands.map((cmd) => this.commandToEntry(cmd));
   }
 
   async listVaultEntries(): Promise<ProviderCommandEntry[]> {
-    const skills = await this.fetchSkills();
-    return skills.map((skill) => this.skillToEntry(skill));
+    const commands = await this.fetchCommands();
+    return commands.map((cmd) => this.commandToEntry(cmd));
   }
 
   async saveVaultEntry(_entry: ProviderCommandEntry): Promise<void> {
-    throw new Error('PI skills are read-only and cannot be saved');
+    throw new Error('PI commands are read-only and cannot be saved');
   }
 
   async deleteVaultEntry(_entry: ProviderCommandEntry): Promise<void> {
-    throw new Error('PI skills are read-only and cannot be deleted');
+    throw new Error('PI commands are read-only and cannot be deleted');
   }
 
   setRuntimeCommands(_commands: unknown[]): void {
-    // PI skills come from the bridge, not from runtime commands
+    // PI commands come from the bridge, not from runtime commands
   }
 
   getDropdownConfig(): ProviderCommandDropdownConfig {
@@ -47,38 +47,42 @@ export class PiCommandCatalog implements ProviderCommandCatalog {
   }
 
   async refresh(): Promise<void> {
-    this.cachedSkills = [];
+    this.cachedCommands = [];
   }
 
-  private async fetchSkills(): Promise<PiSkillInfo[]> {
-    if (this.cachedSkills.length > 0) {
-      return this.cachedSkills;
+  private async fetchCommands(): Promise<PiSkillInfo[]> {
+    if (this.cachedCommands.length > 0) {
+      return this.cachedCommands;
     }
     try {
-      this.cachedSkills = await this.bridge.discoverSkills(this.cwd);
+      this.cachedCommands = await this.bridge.discoverSkills(this.cwd);
     } catch (error) {
-      console.error('[PiCommandCatalog] Failed to fetch skills:', error);
+      console.error('[PiCommandCatalog] Failed to fetch commands:', error);
       return [];
     }
-    return this.cachedSkills;
+    return this.cachedCommands;
   }
 
-  private skillToEntry(skill: PiSkillInfo): ProviderCommandEntry {
+  private commandToEntry(item: PiSkillInfo): ProviderCommandEntry {
+    const kind = item.source === 'prompt' ? 'prompt' : 'skill';
+    const prefix = item.source === 'skill' ? 'skill:' : item.source === 'prompt' ? 'prompt:' : '';
+    const displayName = prefix ? `${prefix}${item.name}` : item.name;
+    
     return {
-      id: `pi-skill:${skill.name}`,
+      id: `pi-${item.source}:${item.name}`,
       providerId: 'pi',
-      kind: 'skill',
-      name: skill.name,
-      description: skill.description,
-      content: `/skill:${skill.name}`,
+      kind,
+      name: displayName,
+      description: item.description,
+      content: `/${displayName}`,
       disableModelInvocation: false,
       userInvocable: true,
       scope: 'system',
       source: 'sdk',
       isEditable: false,
       isDeletable: false,
-      displayPrefix: '/skill:',
-      insertPrefix: '/skill:',
+      displayPrefix: '/',
+      insertPrefix: '/',
     };
   }
 }

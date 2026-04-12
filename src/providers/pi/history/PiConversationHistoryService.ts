@@ -181,6 +181,12 @@ function parseUserPromptForDisplay(content: string, displayContent?: string): {
     working = slashSkillMatch[2]?.trim() ?? '';
   }
 
+  const slashPromptMatch = working.match(/^\/prompt:(\S+)(?:\s+([^\n]*))?/);
+  if (slashPromptMatch) {
+    contextBlocks.push({ type: 'context', tag: `prompt name="${slashPromptMatch[1]}"`, content: '' });
+    working = slashPromptMatch[2]?.trim() ?? '';
+  }
+
   const expandedSkillMatch = working.match(/^<skill\s+name="([^"]+)"[^>]*>[\s\S]*?<\/skill>/);
   if (expandedSkillMatch) {
     contextBlocks.push({ type: 'context', tag: `skill name="${expandedSkillMatch[1]}"`, content: '' });
